@@ -7,7 +7,7 @@ plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
     }
 
     comp_clonality <- function(x,y){
-        calculateClonality(data = rescale_fit(data,ploidy = x,purity = y))
+        calculateClonality(data = rescaleFit(data,ploidy = x,purity = y))
     }
 
     clonality <- sapply(ploidys, function(x) mapply(FUN = comp_clonality,x,purities))
