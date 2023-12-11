@@ -1,3 +1,11 @@
+#' Title
+#'
+#' @param data
+#'
+#' @return
+#' @export
+#'
+#' @examples
 fitInteractive <- function(data=NULL){
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
@@ -9,33 +17,78 @@ fitInteractive <- function(data=NULL){
         stop("no data")
     }
     data.list <- split(data,f = data$sample)
-    ui <- fluidPage(
-            column(width = 4,
-                selectInput("var", "Variable", choices = names(data.list)),
-                sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.1,value = 2),
-                sliderInput("pu_new","purity",min = 0.2,max = 1,step = 0.01,value = 0.7)),
-            column(width = 4,
-                plotOutput("fit_sunrise")),
-            column(width = 4,
-                plotOutput("original_fit"),
-                plotOutput("new_fit")
-            )
+    ui <- shiny::fluidPage(
+        title = "CNfits",
+        titlePanel(title = "CNfits"),
+        fluidRow(
+            shiny::column(width = 2,
+                shiny::selectInput("var", "Variable", choices = names(data.list)),
+                shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.1,value = 2),
+                shiny::sliderInput("pu_new","purity",min = 0.2,max = 1,step = 0.01,value = 0.7),
+                shiny::checkboxInput("round_values",label = "round segments",value = FALSE)),
+            shiny::column(width = 4,
+                shiny::plotOutput("fit_sunrise",click = "sunrise_click"),
+                shiny::tableOutput(outputId = "info")),
+            shiny::column(width = 4,
+                shiny::plotOutput("original_fit"),
+                shiny::plotOutput("new_fit"))
+            ),
+        fluidRow(
+            shiny::column(width = 4,shiny::tableOutput("fit_stat")),
+            shiny::column(width = 4,shiny::tableOutput("new_stat"))
+        )
     )
 
     server <- function(input, output, session) {
-        output$original_fit <- renderPlot({
-            plotprofile(data.list[[input$var]],sample = input$var,cn.max = 15)
+        output$original_fit <- shiny::renderPlot({
+            orig_fit <- data.list[[input$var]]
+
+            if(input$round_values){
+                orig_fit$segVal <- round(orig_fit$segVal)
+            }
+
+            plotprofile(orig_fit,sample = input$var,cn.max = 15)
         })
-        output$new_fit <- renderPlot({
+        output$new_fit <- shiny::renderPlot({
             orig_ploidy <- calculatePloidy(data.list[[input$var]])
             orig_purity <- 0.7 # TEMP
             new_fit <- rescaleFit(data = data.list[[input$var]],ploidy = input$pl_new,purity = input$pu_new)
+
+            if(input$round_values){
+                new_fit$segVal <- round(new_fit$segVal)
+            }
+
             plotprofile(new_fit,sample = input$var,cn.max = 15)
         })
-        output$fit_sunrise <- renderPlot({
+        output$fit_sunrise <- shiny::renderPlot({
             plotSunrise(data = data.list[[input$var]])
+        })
+
+        output$fit_stat <- renderTable({
+            fitTab <- calculateCINStats(data.list)
+            fitTab <- as.data.frame(t(fitTab[rownames(fitTab) == input$var,]))
+            return(fitTab)
+        })
+
+        output$new_stat <- renderTable({
+            newTab <- rescaleFit(data = data.list[[input$var]],
+                                  ploidy = input$pl_new,purity = input$pu_new)
+            newTab <- calculateCINStats(newTab)
+            newTab <- as.data.frame(t(newTab[rownames(newTab) == input$var,]))
+            return(newTab)
+        })
+
+        output$info <- renderTable({
+            req(input$sunrise_click)
+            #browser()
+            nearPoints(calculateSunrise(data = data.list[[input$var]]),
+                       input$sunrise_click)[1,]
+            #
+            # x <- input$sunrise_click$x
+            # y <- input$sunrise_click$y
+            # cat("[", x, ", ", y, "]", sep = "")
         })
     }
 
-    shinyApp(ui, server)
+    shiny::shinyApp(ui, server)
 }
