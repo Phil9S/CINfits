@@ -1,5 +1,13 @@
-## calculateCINStats
-
+#' calculateCINStats
+#'
+#' calculate CIN statistics and metrics over a set of segmented copy number
+#' profiles
+#'
+#' @param data data.frame or list of segmented copy number profiles
+#'
+#' @return data.frame
+#' @export
+#'
 calculateCINStats <- function(data=NULL){
     if(is.null(data)){
         stop("no data")

@@ -1,4 +1,15 @@
-plotprofile <- function(data=NULL,sample=NULL,cn.max=15){
+#' plotProfile
+#'
+#' Produce a plot of segments from a given segmented copy number profile
+#'
+#' @param data data.frame containing a segmented copy number profile
+#' @param sample vector of length 1 containing either a sample name or sample index
+#' @param cn.max maximum copy number to plot - Values greater than this are truncated to the specified value
+#'
+#' @return plot
+#' @export
+#'
+plotProfile <- function(data=NULL,sample=NULL,cn.max=15){
 
     segTab <- data
     segTab$chromosome <- factor(segTab$chromosome,

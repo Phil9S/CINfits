@@ -4,11 +4,19 @@
 \alias{calculateHomozygousLoss}
 \title{calculateHomozygousLoss}
 \usage{
-calculateHomozygousLoss(data = NULL, threshold = 0.2)
+calculateHomozygousLoss(data = NULL, threshold = 0.75)
 }
 \arguments{
-\item{threshold}{}
+\item{data}{data.frame containing a segmented copy number profile}
+
+\item{threshold}{Copy number value at which to consider a segment as
+homozygous loss (Default: 0.75)}
+}
+\value{
+numeric
 }
 \description{
-calculateHomozygousLoss
+Compute proportion of genome which is homozygous loss across a segmented copy
+number profile. The specified threshold is used to determine which segments
+are considered homozygous loss.
 }

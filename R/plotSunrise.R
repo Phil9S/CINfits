@@ -1,3 +1,17 @@
+#' plotSunrise
+#'
+#' Plot sunrise plot of clonality values computed across a gridsearch of
+#' supplied ploidy and purity values
+#'
+#' @param data data.frame containing a segmented copy number profile
+#' @param ploidys numeric vector of ploidy values (Default:
+#'   "seq.int(1.2,8,0.1)")
+#' @param purities numeric vector of purity values between 0 and 1.0 (Default:
+#'   "seq.int(0.2,1,0.01)")
+#'
+#' @return plot
+#' @export
+#'
 plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
 
     clonality <- calculateSunrise(data=data,ploidys = ploidys,purities = purities)

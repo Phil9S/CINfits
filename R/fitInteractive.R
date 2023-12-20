@@ -1,11 +1,13 @@
-#' Title
+#' fitInteractive
 #'
-#' @param data
+#' Launch an interactive shiny application  to perform copy number fitting and
+#' quality control
 #'
-#' @return
+#' @param data data.frame or list of segmented copy number profiles
+#'
+#' @return interactive shiny application
 #' @export
 #'
-#' @examples
 fitInteractive <- function(data=NULL){
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
@@ -19,8 +21,8 @@ fitInteractive <- function(data=NULL){
     data.list <- split(data,f = data$sample)
     ui <- shiny::fluidPage(
         title = "CNfits",
-        titlePanel(title = "CNfits"),
-        fluidRow(
+        shiny::titlePanel(title = "CNfits"),
+        shiny::fluidRow(
             shiny::column(width = 2,
                 shiny::selectInput("var", "Variable", choices = names(data.list)),
                 shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.1,value = 2),
@@ -33,7 +35,7 @@ fitInteractive <- function(data=NULL){
                 shiny::plotOutput("original_fit"),
                 shiny::plotOutput("new_fit"))
             ),
-        fluidRow(
+        shiny::fluidRow(
             shiny::column(width = 4,shiny::tableOutput("fit_stat")),
             shiny::column(width = 4,shiny::tableOutput("new_stat"))
         )
@@ -47,18 +49,19 @@ fitInteractive <- function(data=NULL){
                 orig_fit$segVal <- round(orig_fit$segVal)
             }
 
-            plotprofile(orig_fit,sample = input$var,cn.max = 15)
+            plotProfile(orig_fit,sample = input$var,cn.max = 15)
         })
         output$new_fit <- shiny::renderPlot({
             orig_ploidy <- calculatePloidy(data.list[[input$var]])
             orig_purity <- 0.7 # TEMP
-            new_fit <- rescaleFit(data = data.list[[input$var]],ploidy = input$pl_new,purity = input$pu_new)
+            new_fit <- rescaleFit(data = data.list[[input$var]],
+                                  ploidy = input$pl_new,purity = input$pu_new)
 
             if(input$round_values){
                 new_fit$segVal <- round(new_fit$segVal)
             }
 
-            plotprofile(new_fit,sample = input$var,cn.max = 15)
+            plotProfile(new_fit,sample = input$var,cn.max = 15)
         })
         output$fit_sunrise <- shiny::renderPlot({
             plotSunrise(data = data.list[[input$var]])
