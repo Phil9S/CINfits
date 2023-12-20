@@ -67,13 +67,13 @@ fitInteractive <- function(data=NULL){
             plotSunrise(data = data.list[[input$var]])
         })
 
-        output$fit_stat <- renderTable({
+        output$fit_stat <- shiny::renderTable({
             fitTab <- calculateCINStats(data.list)
             fitTab <- as.data.frame(t(fitTab[rownames(fitTab) == input$var,]))
             return(fitTab)
         })
 
-        output$new_stat <- renderTable({
+        output$new_stat <- shiny::renderTable({
             newTab <- rescaleFit(data = data.list[[input$var]],
                                   ploidy = input$pl_new,purity = input$pu_new)
             newTab <- calculateCINStats(newTab)
@@ -81,10 +81,10 @@ fitInteractive <- function(data=NULL){
             return(newTab)
         })
 
-        output$info <- renderTable({
-            req(input$sunrise_click)
+        output$info <- shiny::renderTable({
+            shiny::req(input$sunrise_click)
             #browser()
-            nearPoints(calculateSunrise(data = data.list[[input$var]]),
+            shiny::nearPoints(calculateSunrise(data = data.list[[input$var]]),
                        input$sunrise_click)[1,]
             #
             # x <- input$sunrise_click$x

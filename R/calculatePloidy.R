@@ -14,6 +14,6 @@ calculatePloidy <- function(data){
     } else {
         lengths <- data$length
     }
-    p <- round(weighted.mean(segs,lengths),digits = 3)
+    p <- round(stats::weighted.mean(segs,lengths),digits = 3)
     return(p)
 }

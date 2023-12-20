@@ -20,7 +20,7 @@ calculateClonality <- function(data=NULL,weighted=TRUE){
     }
     diff <- abs(rounded - segvals)
     if(weighted){
-        clonality <- weighted.mean(diff,lengths)
+        clonality <- stats::weighted.mean(diff,lengths)
     } else {
         clonality <- mean(diff)
     }

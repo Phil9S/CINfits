@@ -16,7 +16,10 @@ plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
 
     clonality <- calculateSunrise(data=data,ploidys = ploidys,purities = purities)
 
-    ggplot2::ggplot(data = clonality,ggplot2::aes(ploidy,purity,fill=clonality)) +
+    ## avoid R CMD check notes
+    ploidy <- purity <- NULL
+
+    ggplot2::ggplot(data = clonality,ggplot2::aes(x=ploidy,y=purity,fill=clonality)) +
         ggplot2::geom_tile() +
         ggplot2::theme_bw() +
         ggplot2::theme()
