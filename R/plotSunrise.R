@@ -13,7 +13,12 @@
 #' @export
 #'
 plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
-
+    if(is.null(ploidys)){
+        ploidys <- seq.int(1.2,8,0.1)
+    }
+    if(is.null(purities)){
+        purities <- seq.int(0.2,1,0.01)
+    }
     clonality <- calculateSunrise(data=data,ploidys = ploidys,purities = purities)
 
     ## avoid R CMD check notes
@@ -21,8 +26,10 @@ plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
 
     ggplot2::ggplot(data = clonality,ggplot2::aes(x=ploidy,y=purity,fill=clonality)) +
         ggplot2::geom_tile() +
+        ggplot2::scale_x_discrete(breaks = unique(round(ploidys,digits = 0))) +
+        ggplot2::scale_y_discrete(breaks = unique(round(purities,digits = 1))) +
         ggplot2::theme_bw() +
-        ggplot2::theme()
+        ggplot2::theme(legend.position = "bottom")
     # heatmap(clonality,
     #         Rowv = NA,Colv = NA,
     #         labRow = purities,labCol = ploidys,
@@ -37,7 +44,7 @@ calculateSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
         purities <- seq.int(0.2,1,0.01)
     }
     comp_clonality <- function(x,y){
-        calculateClonality(data = rescaleFit(data,ploidy = x,purity = y))
+        calculateClonality(data = rescaleFit(data,ploidy = x,new_purity = y))
     }
 
     clonality <- sapply(ploidys, function(x) mapply(FUN = comp_clonality,x,purities))

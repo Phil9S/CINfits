@@ -24,20 +24,31 @@ fitInteractive <- function(data=NULL){
         shiny::titlePanel(title = "CNfits"),
         shiny::fluidRow(
             shiny::column(width = 2,
-                shiny::selectInput("var", "Variable", choices = names(data.list)),
-                shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.1,value = 2),
+                shiny::selectInput("var", "Sample", choices = names(data.list)),
+                shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.01,value = 2),
                 shiny::sliderInput("pu_new","purity",min = 0.2,max = 1,step = 0.01,value = 0.7),
-                shiny::checkboxInput("round_values",label = "round segments",value = FALSE)),
-            shiny::column(width = 4,
-                shiny::plotOutput("fit_sunrise",click = "sunrise_click"),
-                shiny::tableOutput(outputId = "info")),
-            shiny::column(width = 4,
-                shiny::plotOutput("original_fit"),
-                shiny::plotOutput("new_fit"))
+                shiny::checkboxInput("round_values",label = "round segments",value = FALSE),
+                shiny::fileInput("qc_file",label = "QC file",multiple = F,
+                                 accept = c(".tsv",".csv"),buttonLabel = "upload",placeholder = "upload existing qc file..."),
+                shiny::actionButton("accept_fit",label = "accept current"),
+                shiny::actionButton("refit_fit",label = "accept refit"),
+                shiny::actionButton("reject_fit",label = "reject"),
+                shiny::textAreaInput("notes_fit",label = "notes")
             ),
-        shiny::fluidRow(
-            shiny::column(width = 4,shiny::tableOutput("fit_stat")),
-            shiny::column(width = 4,shiny::tableOutput("new_stat"))
+            shiny::column(width = 3,
+                shiny::plotOutput("fit_sunrise",click = "sunrise_click"),
+                shiny::tableOutput(outputId = "info")
+            ),
+            shiny::column(width = 5,offset = -1,
+                shiny::column(width = 9,
+                    shiny::plotOutput("original_fit"),
+                    shiny::plotOutput("new_fit")
+                ),
+                shiny::column(width = 3,
+                    shiny::tableOutput("fit_stat"),
+                    shiny::tableOutput("new_stat")
+                ),
+            )
         )
     )
 
@@ -51,11 +62,11 @@ fitInteractive <- function(data=NULL){
 
             plotProfile(orig_fit,sample = input$var,cn.max = 15)
         })
+
         output$new_fit <- shiny::renderPlot({
-            orig_ploidy <- calculatePloidy(data.list[[input$var]])
-            orig_purity <- 0.7 # TEMP
+            #orig_purity <- 0.7 # TEMP
             new_fit <- rescaleFit(data = data.list[[input$var]],
-                                  ploidy = input$pl_new,purity = input$pu_new)
+                                  ploidy = input$pl_new,new_purity = input$pu_new)
 
             if(input$round_values){
                 new_fit$segVal <- round(new_fit$segVal)
@@ -75,7 +86,7 @@ fitInteractive <- function(data=NULL){
 
         output$new_stat <- shiny::renderTable({
             newTab <- rescaleFit(data = data.list[[input$var]],
-                                  ploidy = input$pl_new,purity = input$pu_new)
+                                  ploidy = input$pl_new,new_purity = input$pu_new)
             newTab <- calculateCINStats(newTab)
             newTab <- as.data.frame(t(newTab[rownames(newTab) == input$var,]))
             return(newTab)
@@ -93,5 +104,5 @@ fitInteractive <- function(data=NULL){
         })
     }
 
-    shiny::shinyApp(ui, server)
+    shiny::shinyApp(ui, server,options = list(launch.browser = TRUE))
 }

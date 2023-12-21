@@ -11,13 +11,15 @@
 #' @return data.frame
 #' @export
 #'
-rescaleFit <- function(data=NULL,ploidy=NULL,purity=NULL,segValOnly=FALSE){
+rescaleFit <- function(data=NULL,ploidy=NULL,new_purity=NULL,segValOnly=FALSE){
 
-    relploidy <- calculatePloidy(data)
-    cellploidy <- ploidy*purity + 2*(1-purity)
+    old_purity <- 0.44 # TEST VALUE FOR IM_11
+
+    relploidy <- calculatePloidy(data = data)
+    cellploidy <- ploidy*new_purity + 2*(1-new_purity)
     scaledploidy <- relploidy/cellploidy
 
-    scaled_cn_segVal <- depthtocn(data$segVal,purity,scaledploidy)
+    scaled_cn_segVal <- convertCN(data$segVal,old_purity,new_purity,scaledploidy)
     data$segVal <- scaled_cn_segVal
     if(segValOnly){
         return(data$segVal)
@@ -28,8 +30,10 @@ rescaleFit <- function(data=NULL,ploidy=NULL,purity=NULL,segValOnly=FALSE){
 
 ## depthtocn
 # support function to convert copy number given purity and single copy depth
-depthtocn<-function(v,purity,scaledploidy)
+convertCN<-function(v,old_purity,new_purity,scaledploidy)
 {
-    (v/scaledploidy-2*(1-purity))/purity
+    #v <- scaledploidy*((1-old_purity)*2+old_purity*v)
+    c <- (v/scaledploidy-2*(1-new_purity))/new_purity
+    return(c)
 }
 
