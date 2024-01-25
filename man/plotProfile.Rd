@@ -4,7 +4,7 @@
 \alias{plotProfile}
 \title{plotProfile}
 \usage{
-plotProfile(data = NULL, sample = NULL, cn.max = 15)
+plotProfile(data = NULL, sample = NULL, cn.max = 15, purity = NULL)
 }
 \arguments{
 \item{data}{data.frame containing a segmented copy number profile}
@@ -12,6 +12,8 @@ plotProfile(data = NULL, sample = NULL, cn.max = 15)
 \item{sample}{vector of length 1 containing either a sample name or sample index}
 
 \item{cn.max}{maximum copy number to plot - Values greater than this are truncated to the specified value}
+
+\item{purity}{given purity for profile being plotted - not required for non-interactive use.}
 }
 \value{
 plot

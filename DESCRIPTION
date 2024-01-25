@@ -8,11 +8,10 @@ Authors@R:
            role = c("cre","aut","cph"),
            email = "philip.smith@cruk.cam.ac.uk",
            comment = c(ORCID = "0000-0002-9306-1747")))
-Maintainer: The package maintainer <yourself@somewhere.net>
+Maintainer: Philip Smith <philip.smith@cruk.cam.ac.uk>
 Description: CINfits is a package for performing quality control and copy number 
     fitting on absolute copy number profiles. The package computes a range of useful
-    metrics and statistcs, allows for both interactive & non-interactive workflows, 
-    and allows for refitting of copy number profiles.
+    metrics, interactive & non-interactive workflows, and allows for refitting of copy number profiles.
 biocViews:
 Depends:
     R (>= 3.6.0)
@@ -26,7 +25,8 @@ Imports:
     tibble,
     tidyr
 Suggests:
-    shiny
+    shiny,
+    DT
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

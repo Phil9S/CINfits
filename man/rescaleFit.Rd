@@ -4,14 +4,25 @@
 \alias{rescaleFit}
 \title{rescaleFit}
 \usage{
-rescaleFit(data = NULL, ploidy = NULL, purity = NULL, segValOnly = FALSE)
+rescaleFit(
+  data = NULL,
+  new_ploidy = NULL,
+  new_purity = NULL,
+  old_ploidy = NULL,
+  old_purity = NULL,
+  segValOnly = FALSE
+)
 }
 \arguments{
 \item{data}{data.frame containing a segmented copy number profile}
 
-\item{ploidy}{new ploidy value to refit copy number profile}
+\item{new_ploidy}{new ploidy value to refit copy number profile}
 
-\item{purity}{new ploidy value to refit copy number profile}
+\item{new_purity}{new purity value to refit copy number profile}
+
+\item{old_ploidy}{old ploidy value from existing fit. Can be calculated from profile.}
+
+\item{old_purity}{old purity value from existing fit}
 
 \item{segValOnly}{return only segVal vector rather than entire refitted segment
 table (Default: FALSE)}

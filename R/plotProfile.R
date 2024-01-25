@@ -5,6 +5,7 @@
 #' @param data data.frame containing a segmented copy number profile
 #' @param sample vector of length 1 containing either a sample name or sample index
 #' @param cn.max maximum copy number to plot - Values greater than this are truncated to the specified value
+#' @param purity given purity for profile being plotted - not required for non-interactive use.
 #'
 #' @return plot
 #' @export
@@ -16,7 +17,13 @@ plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL){
                                 levels = stringr::str_sort(unique(segTab$chromosome),
                                                            numeric = T))
     ob.pl <- calculatePloidy(segTab)
-    ob.pu <- purity
+
+    if(!is.null(purity)){
+        ob.pu <- purity
+    } else {
+        ob.pu <- NA
+    }
+
     if(max(segTab$segVal) > cn.max){
         segTab$segVal[segTab$segVal > cn.max] <- cn.max
         ylim <- c(0,cn.max)

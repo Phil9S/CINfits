@@ -4,6 +4,9 @@
 #' quality control
 #'
 #' @param data data.frame or list of segmented copy number profiles
+#' @param metadata data.frame containing meta data for the samples contained in
+#'   data. This should include at least 3 columns; 'SAMPLE_ID', 'ploidy', and
+#'   'purity'.
 #'
 #' @return interactive shiny application
 #' @export
@@ -12,6 +15,12 @@ fitInteractive <- function(data=NULL,metadata=NULL){
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
             "Package \"shiny\" must be installed to use interactive fitting",
+            call. = FALSE
+        )
+    }
+    if (!requireNamespace("DT", quietly = TRUE)) {
+        stop(
+            "Package \"DT\" must be installed to use interactive fitting",
             call. = FALSE
         )
     }
@@ -46,7 +55,7 @@ fitInteractive <- function(data=NULL,metadata=NULL){
             ),
             shiny::fluidRow(
                 shiny::column(width = 12,
-                    shiny::tableOutput(outputId = "qc_table")
+                    DT::dataTableOutput(outputId = "qc_table")
                 )
             ),
         ),
@@ -69,10 +78,10 @@ fitInteractive <- function(data=NULL,metadata=NULL){
     server <- function(input, output, session) {
 
         # Update sliders to provided fit
-        observe({
-            updateSliderInput(inputId = "pl_new",
+        shiny::observe({
+            shiny::updateSliderInput(inputId = "pl_new",
                               value = metadata$ploidy[metadata$SAMPLE_ID == input$var])
-            updateSliderInput(inputId = "pu_new",
+            shiny::updateSliderInput(inputId = "pu_new",
                               value = metadata$purity[metadata$SAMPLE_ID == input$var])
         })
 
@@ -148,9 +157,16 @@ fitInteractive <- function(data=NULL,metadata=NULL){
             # y <- input$sunrise_click$y
             # cat("[", x, ", ", y, "]", sep = "")
         })
-        output$qc_table <- shiny::renderTable({
-            qc_table <- metadata
-            return(qc_table)
+        output$qc_table <- DT::renderDataTable({
+            qc_table <- metadata[,colnames(metadata) != "notes"]
+            DT::datatable(qc_table,rownames = FALSE,extensions = 'Scroller',
+                      options = list(pageLength = 5,
+                                     #lengthMenu = c(5, 20, 50, 100),
+                                     searchHighlight = T#,
+                                     #deferRender = TRUE,
+                                     #scrollY = 200,
+                                     #scroller = TRUE)
+                                     ))
         })
 
     }

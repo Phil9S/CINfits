@@ -4,7 +4,13 @@
 \alias{plotSunrise}
 \title{plotSunrise}
 \usage{
-plotSunrise(data = NULL, ploidys = NULL, purities = NULL)
+plotSunrise(
+  data = NULL,
+  ploidys = NULL,
+  purities = NULL,
+  ploidy = NULL,
+  purity = NULL
+)
 }
 \arguments{
 \item{data}{data.frame containing a segmented copy number profile}
@@ -14,11 +20,15 @@ plotSunrise(data = NULL, ploidys = NULL, purities = NULL)
 
 \item{purities}{numeric vector of purity values between 0 and 1.0 (Default:
 "seq.int(0.2,1,0.01)")}
+
+\item{ploidy}{ploidy value of current profile from which to calculate sunrise}
+
+\item{purity}{purity value of current profile from which to calculate sunrise}
 }
 \value{
 plot
 }
 \description{
-Plot sunrise plot of clonality values computed across a gridsearch of
+Plot sunrise plot of clonality values computed across a grid search of
 supplied ploidy and purity values
 }

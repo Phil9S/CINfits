@@ -1,6 +1,6 @@
 #' plotSunrise
 #'
-#' Plot sunrise plot of clonality values computed across a gridsearch of
+#' Plot sunrise plot of clonality values computed across a grid search of
 #' supplied ploidy and purity values
 #'
 #' @param data data.frame containing a segmented copy number profile
@@ -8,6 +8,8 @@
 #'   "seq.int(1.2,8,0.1)")
 #' @param purities numeric vector of purity values between 0 and 1.0 (Default:
 #'   "seq.int(0.2,1,0.01)")
+#' @param ploidy ploidy value of current profile from which to calculate sunrise
+#' @param purity purity value of current profile from which to calculate sunrise
 #'
 #' @return plot
 #' @export
