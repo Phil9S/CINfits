@@ -12,14 +12,14 @@
 #' @return plot
 #' @export
 #'
-plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
+plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL,ploidy=NULL,purity=NULL){
     if(is.null(ploidys)){
         ploidys <- seq.int(1.2,8,0.1)
     }
     if(is.null(purities)){
         purities <- seq.int(0.2,1,0.01)
     }
-    clonality <- calculateSunrise(data=data,ploidys = ploidys,purities = purities)
+    clonality <- calculateSunrise(data=data,ploidys = ploidys,purities = purities,ploidy=ploidy,purity=ploidy)
 
     ## avoid R CMD check notes
     ploidy <- purity <- NULL
@@ -36,7 +36,7 @@ plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
     #         xlab = "ploidy",ylab = "purity")
 }
 
-calculateSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
+calculateSunrise <- function(data=NULL,ploidys=NULL,purities=NULL,ploidy=NULL,purity=NULL){
     if(is.null(ploidys)){
         ploidys <- seq.int(1.2,8,0.1)
     }
@@ -44,7 +44,8 @@ calculateSunrise <- function(data=NULL,ploidys=NULL,purities=NULL){
         purities <- seq.int(0.2,1,0.01)
     }
     comp_clonality <- function(x,y){
-        calculateClonality(data = rescaleFit(data,ploidy = x,new_purity = y))
+        calculateClonality(data = rescaleFit(data,old_ploidy = ploidy,old_purity = purity,
+                                             new_ploidy = x,new_purity = y))
     }
 
     clonality <- sapply(ploidys, function(x) mapply(FUN = comp_clonality,x,purities))

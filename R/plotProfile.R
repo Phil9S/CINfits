@@ -9,13 +9,14 @@
 #' @return plot
 #' @export
 #'
-plotProfile <- function(data=NULL,sample=NULL,cn.max=15){
+plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL){
 
     segTab <- data
     segTab$chromosome <- factor(segTab$chromosome,
                                 levels = stringr::str_sort(unique(segTab$chromosome),
                                                            numeric = T))
     ob.pl <- calculatePloidy(segTab)
+    ob.pu <- purity
     if(max(segTab$segVal) > cn.max){
         segTab$segVal[segTab$segVal > cn.max] <- cn.max
         ylim <- c(0,cn.max)
@@ -50,7 +51,12 @@ plotProfile <- function(data=NULL,sample=NULL,cn.max=15){
                                       chrom.len = chrom.len)
 
     title <- sample
-    sub.title <- paste0("ploidy: ",ob.pl," | segments: ",seg.n)
+    if(is.null(purity)){
+        sub.title <- paste0("ploidy: ",ob.pl," | segments: ",seg.n)
+    } else {
+        sub.title <- paste0("ploidy: ",ob.pl," | purity: ",ob.pu," | segments: ",seg.n)
+    }
+
     rect.col <- ifelse(seq_along(chrom.len$Group.1) %% 2 == 0,"white","grey95")
 
     graphics::par(mar=c(5, 4, 4, 4) + 0.2,xpd=FALSE)
