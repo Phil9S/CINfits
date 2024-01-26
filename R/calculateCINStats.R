@@ -18,10 +18,11 @@ calculateCINStats <- function(data=NULL){
         list.tabs <- data
     }
 
+    segments <- unlist(lapply(list.tabs,calculateSegmentCounts))
     clonality <- unlist(lapply(list.tabs,calculateClonality))
     ploidy <-  unlist(lapply(list.tabs,calculatePloidy))
     homozygousLoss <-  unlist(lapply(list.tabs,calculateHomozygousLoss))
 
-    comb <- cbind(clonality,ploidy,homozygousLoss)
+    comb <- cbind(segments,clonality,ploidy,homozygousLoss)
     return(comb)
 }
