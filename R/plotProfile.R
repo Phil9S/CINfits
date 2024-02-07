@@ -6,11 +6,12 @@
 #' @param sample vector of length 1 containing either a sample name or sample index
 #' @param cn.max maximum copy number to plot - Values greater than this are truncated to the specified value
 #' @param purity given purity for profile being plotted - not required for non-interactive use.
+#' @param alleleSpecific Boolean as to whether plot total or allele-specific copy number.
 #'
 #' @return plot
 #' @export
 #'
-plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL){
+plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL,alleleSpecific=FALSE){
 
     segTab <- data
     segTab$chromosome <- factor(segTab$chromosome,
@@ -24,13 +25,21 @@ plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL){
         ob.pu <- NA
     }
 
+    if(alleleSpecific){
+        if(is.null(data$segVal)){
+            data$segVal <- data$nAraw + data$nBraw
+        }
+    }
+
     if(max(segTab$segVal) > cn.max){
         segTab$segVal[segTab$segVal > cn.max] <- cn.max
         ylim <- c(0,cn.max)
     } else {
         ylim <- c(0,round(max(segTab$segVal))+1)
     }
+
     seg.n <- nrow(segTab)
+
     chrom.len <- data.frame(Group.1=unique(segTab$chromosome))
     chrom.len$x.max <- stats::aggregate(segTab$end,
                                         by = list(segTab$chromosome),FUN = max)$x
@@ -88,8 +97,16 @@ plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL){
     graphics::mtext(side=3, line=2, at=-0.07, adj=0, cex=1.2, title)
     graphics::mtext(side=3, line=1, at=-0.07, adj=0, cex=1, sub.title)
     graphics::abline(h = seq.int(1,cn.max-1,1),lty="dashed",col="gray50")
-    graphics::segments(x0 = segTab$startf,y0 = segTab$segVal,
-                       x1 = segTab$endf,y1 = segTab$segVal,lwd=3,col="blue")
+
+    if(alleleSpecific){
+        graphics::segments(x0 = segTab$startf,y0 = segTab$nAraw,
+                           x1 = segTab$endf,y1 = segTab$nAraw,lwd=3,col="blue")
+        graphics::segments(x0 = segTab$startf,y0 = segTab$nBraw,
+                           x1 = segTab$endf,y1 = segTab$nBraw,lwd=3,col="red")
+    } else {
+        graphics::segments(x0 = segTab$startf,y0 = segTab$segVal,
+                           x1 = segTab$endf,y1 = segTab$segVal,lwd=3,col="blue")
+    }
 }
 
 ## helper function to get coordinates from segment data
