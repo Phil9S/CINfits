@@ -4,7 +4,14 @@
 \alias{plotProfile}
 \title{plotProfile}
 \usage{
-plotProfile(data = NULL, sample = NULL, cn.max = 15, purity = NULL)
+plotProfile(
+  data = NULL,
+  sample = NULL,
+  cn.max = 15,
+  purity = NULL,
+  alleleSpecific = FALSE,
+  cols = NULL
+)
 }
 \arguments{
 \item{data}{data.frame containing a segmented copy number profile}
@@ -14,6 +21,10 @@ plotProfile(data = NULL, sample = NULL, cn.max = 15, purity = NULL)
 \item{cn.max}{maximum copy number to plot - Values greater than this are truncated to the specified value}
 
 \item{purity}{given purity for profile being plotted - not required for non-interactive use.}
+
+\item{alleleSpecific}{Boolean as to whether plot total or allele-specific copy number.}
+
+\item{cols}{colours for segments plotted on copy number profile}
 }
 \value{
 plot

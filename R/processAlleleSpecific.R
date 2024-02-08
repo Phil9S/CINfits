@@ -14,7 +14,6 @@
 #' @return data.frame
 #' @export
 #'
-#' @examples
 
 processAlleleSpecific <- function(data = NULL,
                                   nameMaj="nAraw",

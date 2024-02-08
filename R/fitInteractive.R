@@ -31,6 +31,13 @@ fitInteractive <- function(data=NULL,metadata=NULL){
             call. = FALSE
         )
     }
+
+    if (!requireNamespace("colourpicker", quietly = TRUE)) {
+        stop(
+            "Package \"shinyjs\" must be installed to use interactive fitting",
+            call. = FALSE
+        )
+    }
     if(is.null(data)){
         stop("no data")
     }
@@ -112,16 +119,16 @@ fitInteractive <- function(data=NULL,metadata=NULL){
     server <- function(input, output, session) {
 
         # get allele-specific status and modulate checkbox
-        observe(if(input$as == TRUE | input$as == FALSE){
+        shiny::observe(if(input$as == TRUE | input$as == FALSE){
             shinyjs::disable(id = "as")
         })
 
         # setting sample index position
-        samplePos = reactiveVal(1)
+        samplePos = shiny::reactiveVal(1)
 
         # observe QC table
-        qcData <- reactiveValues(data=NULL)
-        observe({
+        qcData <- shiny::reactiveValues(data=NULL)
+        shiny::observe({
             qcData$data <- qctable
         })
         # action on accepting fit
