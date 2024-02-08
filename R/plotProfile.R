@@ -7,11 +7,12 @@
 #' @param cn.max maximum copy number to plot - Values greater than this are truncated to the specified value
 #' @param purity given purity for profile being plotted - not required for non-interactive use.
 #' @param alleleSpecific Boolean as to whether plot total or allele-specific copy number.
+#' @param cols colours for segments plotted on copy number profile
 #'
 #' @return plot
 #' @export
 #'
-plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL,alleleSpecific=FALSE){
+plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL,alleleSpecific=FALSE,cols=NULL){
 
     segTab <- data
     segTab$chromosome <- factor(segTab$chromosome,
@@ -36,6 +37,30 @@ plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL,alleleSpecif
         ylim <- c(0,cn.max)
     } else {
         ylim <- c(0,round(max(segTab$segVal))+1)
+    }
+
+    if(is.null(cols)){
+        if(alleleSpecific){
+            nAcol <- "red"
+            nBcol <- "blue"
+        } else {
+            col <- "blue"
+        }
+    } else {
+        if(alleleSpecific){
+            if(length(cols) == 2){
+                nAcol <- cols[1]
+                nBcol <- cols[2]
+            } else {
+                stop("incorrect len for cols")
+            }
+        } else {
+            if(length(cols) == 1){
+                col = cols
+            } else {
+                stop("incorrect len for cols")
+            }
+        }
     }
 
     seg.n <- nrow(segTab)
@@ -100,12 +125,12 @@ plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL,alleleSpecif
 
     if(alleleSpecific){
         graphics::segments(x0 = segTab$startf,y0 = segTab$nAraw,
-                           x1 = segTab$endf,y1 = segTab$nAraw,lwd=3,col="blue")
+                           x1 = segTab$endf,y1 = segTab$nAraw,lwd=3,col=nAcol)
         graphics::segments(x0 = segTab$startf,y0 = segTab$nBraw,
-                           x1 = segTab$endf,y1 = segTab$nBraw,lwd=3,col="red")
+                           x1 = segTab$endf,y1 = segTab$nBraw,lwd=3,col=nBcol)
     } else {
         graphics::segments(x0 = segTab$startf,y0 = segTab$segVal,
-                           x1 = segTab$endf,y1 = segTab$segVal,lwd=3,col="blue")
+                           x1 = segTab$endf,y1 = segTab$segVal,lwd=3,col=col)
     }
 }
 
