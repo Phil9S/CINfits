@@ -83,11 +83,13 @@ fitInteractive <- function(data=NULL,metadata=NULL){
                     shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.01,value = 2),
                     shiny::sliderInput("pu_new","purity",min = 0.2,max = 1,step = 0.01,value = 0.7),
                     shiny::fileInput("qc_file",label = "QC file",multiple = F,
-                                 accept = c(".tsv",".csv"),buttonLabel = "upload",placeholder = "upload existing qc file..."),
+                                 accept = c(".tsv",".csv"),buttonLabel = "upload",
+                                 placeholder = "upload existing qc file..."),
                     shiny::actionButton("accept_fit",label = "accept current"),
                     shiny::actionButton("refit_fit",label = "accept refit"),
                     shiny::actionButton("reject_fit",label = "reject"),
-                    shiny::textAreaInput("notes_fit",label = "notes")
+                    shiny::textAreaInput("notes_fit",label = "notes",
+                                         placeholder = "Add fit notes here...")
                 ),
                 shiny::column(width = 8,
                     shiny::plotOutput("fit_sunrise",click = "sunrise_click"),
@@ -102,15 +104,19 @@ fitInteractive <- function(data=NULL,metadata=NULL){
         ),
         shiny::column(width = 6,
             shiny::fluidRow(
-                shiny::column(width = 8,offset = -1,
-                    shiny::column(width = 12,
-                        shiny::plotOutput("original_fit"),
-                        shiny::plotOutput("new_fit")
+                shiny::column(width = 12,
+                    shiny::fluidRow(
+                        shiny::column(width = 9,
+                            shiny::plotOutput("original_fit")),
+                        shiny::column(width = 2,
+                            shiny::tableOutput("fit_stat"))
                     ),
-                    shiny::column(width = 3,
-                        shiny::tableOutput("fit_stat"),
-                        shiny::tableOutput("new_stat")
-                    ),
+                    shiny::fluidRow(
+                    shiny::column(width = 9,
+                        shiny::plotOutput("new_fit")),
+                    shiny::column(width = 2,
+                        shiny::tableOutput("new_stat"))
+                    )
                 )
             )
         )
