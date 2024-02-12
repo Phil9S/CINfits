@@ -5,7 +5,7 @@
 #'
 #' @param data data.frame or list of segmented copy number profiles
 #' @param metadata data.frame containing meta data for the samples contained in
-#'   data. This should include at least 3 columns; 'SAMPLE_ID', 'ploidy', and
+#'   data. This should include at least 3 columns; 'sample', 'ploidy', and
 #'   'purity'.
 #'
 #' @return interactive shiny application
@@ -153,16 +153,20 @@ fitInteractive <- function(data=NULL,metadata=NULL){
         # Update sliders to provided fit
         shiny::observe({
             shiny::updateSliderInput(inputId = "pl_new",
-                              value = metadata$ploidy[metadata$SAMPLE_ID == input$var])
+                              value = metadata$ploidy[metadata$sample == input$var])
             shiny::updateSliderInput(inputId = "pu_new",
-                              value = metadata$purity[metadata$SAMPLE_ID == input$var])
+                              value = metadata$purity[metadata$sample == input$var])
         })
 
         output$original_fit <- shiny::renderPlot({
             orig_fit <- data.list[[input$var]]
-            orig_purity <- metadata$purity[metadata$SAMPLE_ID == input$var]
+            orig_purity <- metadata$purity[metadata$sample == input$var]
             if(input$round_values){
                 orig_fit$segVal <- round(orig_fit$segVal)
+                if(AS){
+                    orig_fit$nAraw <- round(orig_fit$nAraw)
+                    orig_fit$nBraw <- round(orig_fit$nBraw)
+                }
             }
 
             if(AS){
@@ -177,8 +181,8 @@ fitInteractive <- function(data=NULL,metadata=NULL){
         })
         output$new_fit <- shiny::renderPlot({
 
-            orig_ploidy <- metadata$ploidy[metadata$SAMPLE_ID == input$var]
-            orig_purity <- metadata$purity[metadata$SAMPLE_ID == input$var]
+            orig_ploidy <- metadata$ploidy[metadata$sample == input$var]
+            orig_purity <- metadata$purity[metadata$sample == input$var]
 
             new_fit <- rescaleFit(data = data.list[[input$var]],
                                   old_ploidy = orig_ploidy,
@@ -188,15 +192,26 @@ fitInteractive <- function(data=NULL,metadata=NULL){
 
             if(input$round_values){
                 new_fit$segVal <- round(new_fit$segVal)
+                if(AS){
+                    # new_fit$nAraw <- round(new_fit$nAraw)
+                    # new_fit$nBraw <- round(new_fit$nBraw)
+                }
+            }
+
+            if(AS){
+                cols <- c(input$nA,input$nB)
+            } else {
+                cols <- "red"
             }
 
             plotProfile(new_fit,sample = input$var,
-                        cn.max = 15,purity = input$pu_new)
+                        cn.max = 15,purity = input$pu_new,
+                        alleleSpecific = AS,cols = cols)
         })
 
         output$fit_sunrise <- shiny::renderPlot({
-            orig_ploidy <- metadata$ploidy[metadata$SAMPLE_ID == input$var]
-            orig_purity <- metadata$purity[metadata$SAMPLE_ID == input$var]
+            orig_ploidy <- metadata$ploidy[metadata$sample == input$var]
+            orig_purity <- metadata$purity[metadata$sample == input$var]
             plotSunrise(data = data.list[[input$var]],
                         ploidy=orig_ploidy,purity=orig_purity)
         })
@@ -209,8 +224,8 @@ fitInteractive <- function(data=NULL,metadata=NULL){
 
         output$new_stat <- shiny::renderTable({
 
-            orig_ploidy <- metadata$ploidy[metadata$SAMPLE_ID == input$var]
-            orig_purity <- metadata$purity[metadata$SAMPLE_ID == input$var]
+            orig_ploidy <- metadata$ploidy[metadata$sample == input$var]
+            orig_purity <- metadata$purity[metadata$sample == input$var]
 
             newTab <- rescaleFit(data = data.list[[input$var]],
                                  old_ploidy = orig_ploidy,
@@ -223,8 +238,8 @@ fitInteractive <- function(data=NULL,metadata=NULL){
         })
 
         output$info <- shiny::renderTable({
-            orig_ploidy <- metadata$ploidy[metadata$SAMPLE_ID == input$var]
-            orig_purity <- metadata$purity[metadata$SAMPLE_ID == input$var]
+            orig_ploidy <- metadata$ploidy[metadata$sample == input$var]
+            orig_purity <- metadata$purity[metadata$sample == input$var]
 
             shiny::req(input$sunrise_click)
             #browser()
