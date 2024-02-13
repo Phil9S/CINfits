@@ -10,7 +10,7 @@ rescaleFit(
   new_purity = NULL,
   old_ploidy = NULL,
   old_purity = NULL,
-  segValOnly = FALSE
+  alleleSpecific = FALSE
 )
 }
 \arguments{
@@ -24,8 +24,7 @@ rescaleFit(
 
 \item{old_purity}{old purity value from existing fit}
 
-\item{segValOnly}{return only segVal vector rather than entire refitted segment
-table (Default: FALSE)}
+\item{alleleSpecific}{rescale allele-specific copy number data (default: FALSE)}
 }
 \value{
 data.frame

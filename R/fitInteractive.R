@@ -59,27 +59,36 @@ fitInteractive <- function(data=NULL,metadata=NULL){
         shinyjs::useShinyjs(),
         title = "CNfits",
         shiny::titlePanel(title = "CNfits"),
-        shiny::column(width = 6,
+        shiny::column(width = 5,
             shiny::fluidRow(
                 shiny::column(width = 4,
                     shiny::selectInput("var", "Sample", choices = names(data.list)),
                     shiny::fluidRow(
-                        shiny::column(6,shiny::checkboxInput("as",label = "allele-specific",value = AS)),
-                        shiny::column(6,shiny::checkboxInput("round_values",label = "round segments",value = FALSE))
+                        shiny::column(6,shiny::checkboxInput("as",label = "allele-specific",value = FALSE)),
+                        shiny::column(6,shiny::checkboxInput("round_values",
+                                                             label = "round segments",value = FALSE))
                         ),
-                    shiny::conditionalPanel(condition = "input.as == true",
-                                            shiny::wellPanel(
-                                                shiny::column(6,
+                    shiny::wellPanel(
+                        shiny::fluidRow(
+                            shiny::conditionalPanel(condition = "input.as == true",
+                                            shiny::column(6,
                                             colourpicker::colourInput(inputId = "nA",
                                                                       label = "allele A",
                                                                       value = "red",
                                                                       allowTransparent = F)),
-                                                shiny::column(6,
+                                            shiny::column(6,
                                             colourpicker::colourInput(inputId = "nB",
                                                                       label = "allele B",
                                                                       value = "blue",
                                                                       allowTransparent = F))
-                                            )),
+                                            ),
+                            shiny::conditionalPanel(condition = "input.as == false",
+                                                shiny::column(12,
+                                                              colourpicker::colourInput(inputId = "totcol",
+                                                                                        label = "segment colour",
+                                                                                        value = "red",
+                                                                                        allowTransparent = F))
+                                            ))),
                     shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.01,value = 2),
                     shiny::sliderInput("pu_new","purity",min = 0.2,max = 1,step = 0.01,value = 0.7),
                     shiny::fileInput("qc_file",label = "QC file",multiple = F,
@@ -87,7 +96,7 @@ fitInteractive <- function(data=NULL,metadata=NULL){
                                  placeholder = "upload existing qc file..."),
                     shiny::actionButton("accept_fit",label = "accept current"),
                     shiny::actionButton("refit_fit",label = "accept refit"),
-                    shiny::actionButton("reject_fit",label = "reject"),
+                    shiny::actionButton("reject_fit",label = "reject fit"),
                     shiny::textAreaInput("notes_fit",label = "notes",
                                          placeholder = "Add fit notes here...")
                 ),
@@ -102,31 +111,35 @@ fitInteractive <- function(data=NULL,metadata=NULL){
                 )
             ),
         ),
-        shiny::column(width = 6,
+        shiny::column(width = 7,
             shiny::fluidRow(
-                shiny::column(width = 12,
                     shiny::fluidRow(
-                        shiny::column(width = 9,
+                        shiny::h3("Original profile"),
+                        shiny::column(width = 7,
                             shiny::plotOutput("original_fit")),
                         shiny::column(width = 2,
                             shiny::tableOutput("fit_stat"))
                     ),
                     shiny::fluidRow(
-                    shiny::column(width = 9,
-                        shiny::plotOutput("new_fit")),
-                    shiny::column(width = 2,
-                        shiny::tableOutput("new_stat"))
+                        shiny::h3("refit profile"),
+                        shiny::column(width = 7,
+                            shiny::plotOutput("new_fit")),
+                        shiny::column(width = 2,
+                            shiny::tableOutput("new_stat"))
                     )
                 )
-            )
         )
     )
 
     server <- function(input, output, session) {
 
-        # get allele-specific status and modulate checkbox
-        shiny::observe(if(input$as == TRUE | input$as == FALSE){
+        # disable allele-specific where only total available
+        shiny::observe(if(AS == FALSE){
             shinyjs::disable(id = "as")
+        })
+
+        shiny::observe(if(AS == TRUE){
+            shiny::updateCheckboxInput(inputId = "as",value = TRUE)
         })
 
         # setting sample index position
@@ -137,17 +150,54 @@ fitInteractive <- function(data=NULL,metadata=NULL){
         shiny::observe({
             qcData$data <- qctable
         })
+
         # action on accepting fit
         shiny::observeEvent(input$accept_fit,{
             samplePos(samplePos()+1)
             selectedSample <- names(data.list)[samplePos()]
 
             df <- qcData$data
-            df$use[df$sample == input$var] <- TRUE
+            df$use[df$sample == input$var] <- "TRUE"
+
+            df$notes[df$sample == input$var] <- input$notes_fit
+            shiny::updateTextAreaInput(inputId = "notes_fit",value = "")
+
             qcData$data <- df
 
             shiny::updateSelectInput(inputId = "var",selected = selectedSample)
+        })
 
+        # action on accepting refit
+        shiny::observeEvent(input$refit_fit,{
+            # samplePos(samplePos()+1)
+            # selectedSample <- names(data.list)[samplePos()]
+            #
+            # df <- qcData$data
+            # df$use[df$sample == input$var] <- TRUE
+            #
+            # df$notes[df$sample == input$var] <- input$notes_fit
+            # updateTextAreaInput(inputId = "notes_fit",value = "")
+            #
+            # qcData$data <- df
+            #
+            # shiny::updateSelectInput(inputId = "var",selected = selectedSample)
+
+        })
+
+        # action on reject fit
+        shiny::observeEvent(input$reject_fit,{
+            samplePos(samplePos()+1)
+            selectedSample <- names(data.list)[samplePos()]
+
+            df <- qcData$data
+            df$use[df$sample == input$var] <- "FALSE"
+
+            df$notes[df$sample == input$var] <- input$notes_fit
+            updateTextAreaInput(inputId = "notes_fit",value = "")
+
+            qcData$data <- df
+
+            shiny::updateSelectInput(inputId = "var",selected = selectedSample)
         })
 
         # Update sliders to provided fit
@@ -163,21 +213,21 @@ fitInteractive <- function(data=NULL,metadata=NULL){
             orig_purity <- metadata$purity[metadata$sample == input$var]
             if(input$round_values){
                 orig_fit$segVal <- round(orig_fit$segVal)
-                if(AS){
+                if(input$as){
                     orig_fit$nAraw <- round(orig_fit$nAraw)
                     orig_fit$nBraw <- round(orig_fit$nBraw)
                 }
             }
 
-            if(AS){
+            if(input$as){
                 cols <- c(input$nA,input$nB)
             } else {
-                cols <- "red"
+                cols <- input$totcol
             }
 
             plotProfile(orig_fit,sample = input$var,
                         cn.max = 15,purity = orig_purity,
-                        alleleSpecific = AS,cols = cols)
+                        alleleSpecific = input$as,cols = cols)
         })
         output$new_fit <- shiny::renderPlot({
 
@@ -188,25 +238,26 @@ fitInteractive <- function(data=NULL,metadata=NULL){
                                   old_ploidy = orig_ploidy,
                                   old_purity = orig_purity,
                                   new_ploidy = input$pl_new,
-                                  new_purity = input$pu_new)
+                                  new_purity = input$pu_new,
+                                  alleleSpecific=input$as)
 
             if(input$round_values){
                 new_fit$segVal <- round(new_fit$segVal)
-                if(AS){
-                    # new_fit$nAraw <- round(new_fit$nAraw)
-                    # new_fit$nBraw <- round(new_fit$nBraw)
+                if(input$as){
+                    new_fit$nAraw <- round(new_fit$nAraw)
+                    new_fit$nBraw <- round(new_fit$nBraw)
                 }
             }
 
-            if(AS){
+            if(input$as){
                 cols <- c(input$nA,input$nB)
             } else {
-                cols <- "red"
+                cols <- input$totcol
             }
 
             plotProfile(new_fit,sample = input$var,
                         cn.max = 15,purity = input$pu_new,
-                        alleleSpecific = AS,cols = cols)
+                        alleleSpecific = input$as,cols = cols)
         })
 
         output$fit_sunrise <- shiny::renderPlot({
@@ -231,7 +282,9 @@ fitInteractive <- function(data=NULL,metadata=NULL){
                                  old_ploidy = orig_ploidy,
                                  old_purity = orig_purity,
                                  new_ploidy = input$pl_new,
-                                 new_purity = input$pu_new)
+                                 new_purity = input$pu_new,
+                                 alleleSpecific=input$as)
+
             newTab <- calculateCINStats(newTab)
             newTab <- as.data.frame(t(newTab[rownames(newTab) == input$var,]))
             return(newTab)
@@ -255,11 +308,10 @@ fitInteractive <- function(data=NULL,metadata=NULL){
         output$qc_table <- DT::renderDataTable({
             DT::datatable(qcData$data,rownames = FALSE,extensions = 'Scroller',
                       options = list(pageLength = 5,
-                                     #lengthMenu = c(5, 20, 50, 100),
-                                     searchHighlight = T#,
-                                     #deferRender = TRUE,
-                                     #scrollY = 200,
-                                     #scroller = TRUE)
+                                     ordering=F,
+                                     scrollY = 200,
+                                     scroller = TRUE,
+                                     searchHighlight = T
                                      ))
         })
 

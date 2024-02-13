@@ -59,7 +59,6 @@ processAlleleSpecific <- function(data = NULL,
         }
         dataSub <- dataSub[,which(!colnames(dataSub) %in% c("nAraw","nBraw"))]
 
-
         warning("smoothing not implemented")
     }
 

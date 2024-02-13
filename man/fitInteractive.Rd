@@ -10,7 +10,7 @@ fitInteractive(data = NULL, metadata = NULL)
 \item{data}{data.frame or list of segmented copy number profiles}
 
 \item{metadata}{data.frame containing meta data for the samples contained in
-data. This should include at least 3 columns; 'SAMPLE_ID', 'ploidy', and
+data. This should include at least 3 columns; 'sample', 'ploidy', and
 'purity'.}
 }
 \value{
