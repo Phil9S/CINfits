@@ -36,7 +36,7 @@ smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear"
 linearSmooth <- function(data,smoothingFactor,method){
     segment.table <- data %>%
         dplyr::group_by(chromosome,sample) %>%
-        dplyr::mutate(seg_diff = abs(segVal - lag(segVal))) %>%
+        dplyr::mutate(seg_diff = abs(segVal - dplyr::lag(segVal))) %>%
         dplyr::mutate(chng = ifelse(seg_diff > smoothingFactor,"TRUE","FALSE")) %>%
         dplyr::mutate(chng = as.logical(ifelse(is.na(chng),"TRUE",chng))) %>%
         dplyr::mutate(comb = cumsum(chng)) %>%
