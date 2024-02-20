@@ -34,16 +34,18 @@ smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear"
 }
 
 linearSmooth <- function(data,smoothingFactor,method,alleleSpecific){
-    segment.table <- data %>%
-        dplyr::group_by(chromosome,sample) %>%
-        dplyr::mutate(seg_diff = abs(segVal - dplyr::lag(segVal))) %>%
-        dplyr::mutate(chng = ifelse(seg_diff > smoothingFactor,"TRUE","FALSE")) %>%
-        dplyr::mutate(chng = as.logical(ifelse(is.na(chng),"TRUE",chng))) %>%
-        dplyr::mutate(comb = cumsum(chng)) %>%
-        dplyr::group_by(chromosome,sample,comb) %>%
-        dplyr::select(-chng) %>%
-        dplyr::mutate(length = end - start)
     if(alleleSpecific){
+        segment.table <- data %>%
+            dplyr::group_by(chromosome,sample) %>%
+            dplyr::mutate(seg_diffA = abs(nAraw - dplyr::lag(nAraw))) %>%
+            dplyr::mutate(seg_diffB = abs(nBraw - dplyr::lag(nBraw))) %>%
+            ## If either alleles change greater than smoothingFactor mark as different
+            dplyr::mutate(chng = ifelse(seg_diffA > smoothingFactor | seg_diffB > smoothingFactor,"TRUE","FALSE")) %>%
+            dplyr::mutate(chng = as.logical(ifelse(is.na(chng),"TRUE",chng))) %>%
+            dplyr::mutate(comb = cumsum(chng)) %>%
+            dplyr::group_by(chromosome,sample,comb) %>%
+            dplyr::select(-chng) %>%
+            dplyr::mutate(length = end - start)
         switch(method,
                "median"={
                    segment.table <- segment.table %>%
@@ -67,6 +69,15 @@ linearSmooth <- function(data,smoothingFactor,method,alleleSpecific){
                                         dplyr::across(nBraw,~stats::weighted.mean(.,w=length,na.rm=TRUE)))
                })
     } else {
+        segment.table <- data %>%
+            dplyr::group_by(chromosome,sample) %>%
+            dplyr::mutate(seg_diff = abs(segVal - dplyr::lag(segVal))) %>%
+            dplyr::mutate(chng = ifelse(seg_diff > smoothingFactor,"TRUE","FALSE")) %>%
+            dplyr::mutate(chng = as.logical(ifelse(is.na(chng),"TRUE",chng))) %>%
+            dplyr::mutate(comb = cumsum(chng)) %>%
+            dplyr::group_by(chromosome,sample,comb) %>%
+            dplyr::select(-chng) %>%
+            dplyr::mutate(length = end - start)
         switch(method,
            "median"={
                segment.table <- segment.table %>%
