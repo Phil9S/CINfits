@@ -1,4 +1,4 @@
-smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear",method="median"){
+smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear",method="median",alleleSpecific=FALSE){
     if(is.null(data)){
         stop("no data provided")
     }
@@ -16,13 +16,13 @@ smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear"
         stop("smoothingFactor should be between 0 and 0.5")
     }
 
-    if(implementation == "iterative" & method != "weighted"){
+    if(implementation == "iterative" & method != "weighted.mean"){
         warning("By default the iterative implementation uses weighted mean method for collapsing segments")
     }
 
     switch(implementation,
         "linear" = {
-            dtSmooth <- linearSmooth(data,smoothingFactor,method)
+            dtSmooth <- linearSmooth(data,smoothingFactor,method,alleleSpecific)
         },
         "iterative"={
             dfAllSegs <- idSmoothingTargets(data,smoothingFactor = smoothingFactor)
@@ -30,10 +30,10 @@ smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear"
             lSmooth = iterativeSmooth(lRaw,smoothingFactor = smoothingFactor)
             dtSmooth = data.table::rbindlist(lSmooth)
         })
-    return(dtSmooth)
+    return(as.data.frame(dtSmooth))
 }
 
-linearSmooth <- function(data,smoothingFactor,method){
+linearSmooth <- function(data,smoothingFactor,method,alleleSpecific){
     segment.table <- data %>%
         dplyr::group_by(chromosome,sample) %>%
         dplyr::mutate(seg_diff = abs(segVal - dplyr::lag(segVal))) %>%
@@ -43,8 +43,31 @@ linearSmooth <- function(data,smoothingFactor,method){
         dplyr::group_by(chromosome,sample,comb) %>%
         dplyr::select(-chng) %>%
         dplyr::mutate(length = end - start)
-
-    switch(method,
+    if(alleleSpecific){
+        switch(method,
+               "median"={
+                   segment.table <- segment.table %>%
+                       dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
+                                        dplyr::across(segVal,median),
+                                        dplyr::across(nAraw,median),
+                                        dplyr::across(nBraw,median))
+               },
+               "mean"={
+                   segment.table <- segment.table %>%
+                       dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
+                                        dplyr::across(segVal,mean),
+                                        dplyr::across(nAraw,mean),
+                                        dplyr::across(nBraw,mean))
+               },
+               "weighted.mean"={
+                   segment.table <- segment.table %>%
+                       dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
+                                        dplyr::across(segVal,~stats::weighted.mean(.,w=length,na.rm=TRUE)),
+                                        dplyr::across(nAraw,~stats::weighted.mean(.,w=length,na.rm=TRUE)),
+                                        dplyr::across(nBraw,~stats::weighted.mean(.,w=length,na.rm=TRUE)))
+               })
+    } else {
+        switch(method,
            "median"={
                segment.table <- segment.table %>%
                    dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
@@ -60,15 +83,18 @@ linearSmooth <- function(data,smoothingFactor,method){
                    dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
                                     dplyr::across(segVal,~stats::weighted.mean(.,w=length,na.rm=TRUE)))
            })
+    }
 
     segment.table <- segment.table %>%
-        dplyr::select(chromosome,start,end,segVal,sample) %>%
+        dplyr::select(-comb) %>%
+        dplyr::relocate(sample,.after = dplyr::last_col()) %>%
+        dplyr::relocate(segVal,.before = sample) %>%
         dplyr::mutate(chromosome = factor(chromosome,levels=c(1:22,"X","Y"))) %>%
         dplyr::arrange(sample,chromosome,start)
     return(as.data.frame(segment.table))
 }
 
-idSmoothingTargets <- function(dfAllSegs, smoothingFactor) {
+idSmoothingTargets <- function(dfAllSegs,smoothingFactor) {
     ## smoothing procedure implemented by Ruben Drews in Nature 2022 modified by Phil Smith
     colNameSegVal <- "segVal"
     colNameChr <- "chromosome"
