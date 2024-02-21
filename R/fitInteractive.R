@@ -7,11 +7,14 @@
 #' @param metadata data.frame containing meta data for the samples contained in
 #'   data. This should include at least 3 columns; 'sample', 'ploidy', and
 #'   'purity'.
+#' @param autoSave boolean value to set if QC table should be automatically saved
+#'   to a temporary location during interactive fitting.
+#' @param autoSaveInt Time increment (minutes) at which to perform an auto save
 #'
 #' @return interactive shiny application
 #' @export
 #'
-fitInteractive <- function(data=NULL,metadata=NULL){
+fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15){
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
             "Package \"shiny\" must be installed to use interactive fitting",
@@ -55,6 +58,7 @@ fitInteractive <- function(data=NULL,metadata=NULL){
     }
 
     data.list <- split(data,f = data$sample)
+
     ui <- shiny::fluidPage(
         shinyjs::useShinyjs(),
         title = "CNfits",
@@ -63,6 +67,7 @@ fitInteractive <- function(data=NULL,metadata=NULL){
             shiny::fluidRow(
                 shiny::column(width = 4,
                     shiny::fluidRow(
+                        shiny::textOutput(outputId = "autosave"),
                         shiny::h3("Sample"),
                         shiny::selectInput("var",label = NULL,choices = names(data.list)),
                         shiny::fluidRow(
@@ -387,6 +392,29 @@ fitInteractive <- function(data=NULL,metadata=NULL){
                                      ))
         })
 
+        # output$autoSave <- shiny::renderText({
+        #     autoSave(autoSave = autoSave,time = autoSaveInt)
+        # })
+
+        if(autoSave){
+            autoCount <- 0
+            autoSaveTrigger <- reactiveTimer(intervalMs = autoSaveInt*60000,session = session)
+            observe({
+                autoSaveTrigger()
+                if(autoCount == 0){
+                    output$autosave <- shiny::renderText({paste0("Last saved : never")})
+                    autoCount <- 1
+                }
+                wd <- getwd()
+                time <- gsub(":","-",gsub(" ","_",as.character(Sys.time())))
+                file <- paste0(wd,"/autosave_",time,"_QC_table",".tsv")
+                write.table(isolate(qcData$data),file,quote = F,sep = "\t",append = F,
+                            row.names = F,col.names = T)
+                lastTime <- Sys.time()
+                output$autosave <- shiny::renderText({paste0("Last saved : ",as.character(lastTime))})
+            })
+        }
+
         output$saveQC <- shiny::downloadHandler(
             filename = function() {
                 paste0(Sys.Date(),"_QC_table",".tsv")
@@ -400,4 +428,12 @@ fitInteractive <- function(data=NULL,metadata=NULL){
     }
 
     shiny::shinyApp(ui, server,options = list(launch.browser = TRUE))
+}
+
+## support function to compare vectors including NA
+## http://www.cookbook-r.com/Manipulating_data/Comparing_vectors_or_factors_with_NA/
+compareNA <- function(v1,v2) {
+    same <- (v1 == v2) | (is.na(v1) & is.na(v2))
+    same[is.na(same)] <- FALSE
+    return(same)
 }
