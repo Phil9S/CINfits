@@ -10,7 +10,7 @@
 #'   "seq.int(0.2,1,0.01)")
 #' @param ploidy ploidy value of current profile from which to calculate sunrise
 #' @param purity purity value of current profile from which to calculate sunrise
-#' @param alleleSpecific use allele-specific data
+#' @param alleleSpecifc use allele-specific data
 #'
 #' @return plot
 #' @export

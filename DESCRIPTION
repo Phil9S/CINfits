@@ -20,8 +20,11 @@ Imports:
     magrittr,
     ggplot2,
     stringr,
+    rlang,
     tibble,
-    tidyr
+    tidyr,
+    dplyr,
+    data.table
 Suggests:
     shiny,
     DT,

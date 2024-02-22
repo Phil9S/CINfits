@@ -1,3 +1,18 @@
+#' smoothProfile
+#'
+#' @param data data.frame containing copy number segments
+#' @param smoothingFactor Distance between two segments at which to collapse
+#'   into a single segment (Default: 0.12)
+#' @param implementation Smoothing implementation to use, either linear or
+#'   iterative (Default: linear)
+#' @param method method to collapse segments (Default: median). Options are
+#'   median, mean, weighted.mean.
+#' @param alleleSpecific use allele-specific implementation
+#'
+#' @return data.frame
+#' @importFrom rlang .data
+#' @export
+#'
 smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear",method="median",alleleSpecific=FALSE){
     if(is.null(data)){
         stop("no data provided")
@@ -36,72 +51,72 @@ smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear"
 linearSmooth <- function(data,smoothingFactor,method,alleleSpecific){
     if(alleleSpecific){
         segment.table <- data %>%
-            dplyr::group_by(chromosome,sample) %>%
-            dplyr::mutate(seg_diffA = abs(nAraw - dplyr::lag(nAraw))) %>%
-            dplyr::mutate(seg_diffB = abs(nBraw - dplyr::lag(nBraw))) %>%
+            dplyr::group_by(.data$chromosome,.data$sample) %>%
+            dplyr::mutate(seg_diffA = abs(.data$nAraw - dplyr::lag(.data$nAraw))) %>%
+            dplyr::mutate(seg_diffB = abs(.data$nBraw - dplyr::lag(.data$nBraw))) %>%
             ## If either alleles change greater than smoothingFactor mark as different
-            dplyr::mutate(chng = ifelse(seg_diffA > smoothingFactor | seg_diffB > smoothingFactor,"TRUE","FALSE")) %>%
-            dplyr::mutate(chng = as.logical(ifelse(is.na(chng),"TRUE",chng))) %>%
-            dplyr::mutate(comb = cumsum(chng)) %>%
-            dplyr::group_by(chromosome,sample,comb) %>%
-            dplyr::select(-chng) %>%
-            dplyr::mutate(length = end - start)
+            dplyr::mutate(chng = ifelse(.data$seg_diffA > smoothingFactor | .data$seg_diffB > smoothingFactor,"TRUE","FALSE")) %>%
+            dplyr::mutate(chng = as.logical(ifelse(is.na(.data$chng),"TRUE",.data$chng))) %>%
+            dplyr::mutate(comb = cumsum(.data$chng)) %>%
+            dplyr::group_by(.data$chromosome,.data$sample,.data$comb) %>%
+            dplyr::select(-.data$chng) %>%
+            dplyr::mutate(length = .data$end - .data$start)
         switch(method,
                "median"={
                    segment.table <- segment.table %>%
-                       dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
-                                        dplyr::across(segVal,median),
-                                        dplyr::across(nAraw,median),
-                                        dplyr::across(nBraw,median))
+                       dplyr::summarise(dplyr::across(.data$start,min),dplyr::across(.data$end,max),
+                                        dplyr::across(.data$segVal,stats::median),
+                                        dplyr::across(.data$nAraw,stats::median),
+                                        dplyr::across(.data$nBraw,stats::median))
                },
                "mean"={
                    segment.table <- segment.table %>%
-                       dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
-                                        dplyr::across(segVal,mean),
-                                        dplyr::across(nAraw,mean),
-                                        dplyr::across(nBraw,mean))
+                       dplyr::summarise(dplyr::across(.data$start,min),dplyr::across(.data$end,max),
+                                        dplyr::across(.data$segVal,mean),
+                                        dplyr::across(.data$nAraw,mean),
+                                        dplyr::across(.data$nBraw,mean))
                },
                "weighted.mean"={
                    segment.table <- segment.table %>%
-                       dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
-                                        dplyr::across(segVal,~stats::weighted.mean(.,w=length,na.rm=TRUE)),
-                                        dplyr::across(nAraw,~stats::weighted.mean(.,w=length,na.rm=TRUE)),
-                                        dplyr::across(nBraw,~stats::weighted.mean(.,w=length,na.rm=TRUE)))
+                       dplyr::summarise(dplyr::across(.data$start,min),dplyr::across(.data$end,max),
+                                        dplyr::across(.data$segVal,~stats::weighted.mean(.,w=length,na.rm=TRUE)),
+                                        dplyr::across(.data$nAraw,~stats::weighted.mean(.,w=length,na.rm=TRUE)),
+                                        dplyr::across(.data$nBraw,~stats::weighted.mean(.,w=length,na.rm=TRUE)))
                })
     } else {
         segment.table <- data %>%
-            dplyr::group_by(chromosome,sample) %>%
-            dplyr::mutate(seg_diff = abs(segVal - dplyr::lag(segVal))) %>%
-            dplyr::mutate(chng = ifelse(seg_diff > smoothingFactor,"TRUE","FALSE")) %>%
-            dplyr::mutate(chng = as.logical(ifelse(is.na(chng),"TRUE",chng))) %>%
-            dplyr::mutate(comb = cumsum(chng)) %>%
-            dplyr::group_by(chromosome,sample,comb) %>%
-            dplyr::select(-chng) %>%
-            dplyr::mutate(length = end - start)
+            dplyr::group_by(.data$chromosome,.data$sample) %>%
+            dplyr::mutate(seg_diff = abs(.data$segVal - dplyr::lag(.data$segVal))) %>%
+            dplyr::mutate(chng = ifelse(.data$seg_diff > smoothingFactor,"TRUE","FALSE")) %>%
+            dplyr::mutate(chng = as.logical(ifelse(is.na(.data$chng),"TRUE",.data$chng))) %>%
+            dplyr::mutate(comb = cumsum(.data$chng)) %>%
+            dplyr::group_by(.data$chromosome,.data$sample,.data$comb) %>%
+            dplyr::select(-.data$chng) %>%
+            dplyr::mutate(length = .data$end - .data$start)
         switch(method,
            "median"={
                segment.table <- segment.table %>%
-                   dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
-                                    dplyr::across(segVal,median))
+                   dplyr::summarise(dplyr::across(.data$start,min),dplyr::across(.data$end,max),
+                                    dplyr::across(.data$segVal,stats::median))
            },
            "mean"={
                segment.table <- segment.table %>%
-                   dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
-                                    dplyr::across(segVal,mean))
+                   dplyr::summarise(dplyr::across(.data$start,min),dplyr::across(.data$end,max),
+                                    dplyr::across(.data$segVal,mean))
            },
            "weighted"={
                segment.table <- segment.table %>%
-                   dplyr::summarise(dplyr::across(start,min),dplyr::across(end,max),
-                                    dplyr::across(segVal,~stats::weighted.mean(.,w=length,na.rm=TRUE)))
+                   dplyr::summarise(dplyr::across(.data$start,min),dplyr::across(.data$end,max),
+                                    dplyr::across(.data$segVal,~stats::weighted.mean(.,w=length,na.rm=TRUE)))
            })
     }
 
     segment.table <- segment.table %>%
-        dplyr::select(-comb) %>%
-        dplyr::relocate(sample,.after = dplyr::last_col()) %>%
-        dplyr::relocate(segVal,.before = sample) %>%
-        dplyr::mutate(chromosome = factor(chromosome,levels=c(1:22,"X","Y"))) %>%
-        dplyr::arrange(sample,chromosome,start)
+        dplyr::select(-.data$comb) %>%
+        dplyr::relocate(.data$sample,.after = dplyr::last_col()) %>%
+        dplyr::relocate(.data$segVal,.before = .data$sample) %>%
+        dplyr::mutate(chromosome = factor(.data$chromosome,levels=c(1:22,"X","Y"))) %>%
+        dplyr::arrange(.data$sample,.data$chromosome,.data$start)
     return(as.data.frame(segment.table))
 }
 

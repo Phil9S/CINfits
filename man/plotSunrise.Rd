@@ -9,7 +9,8 @@ plotSunrise(
   ploidys = NULL,
   purities = NULL,
   ploidy = NULL,
-  purity = NULL
+  purity = NULL,
+  alleleSpecifc = FALSE
 )
 }
 \arguments{
@@ -24,6 +25,8 @@ plotSunrise(
 \item{ploidy}{ploidy value of current profile from which to calculate sunrise}
 
 \item{purity}{purity value of current profile from which to calculate sunrise}
+
+\item{alleleSpecifc}{use allele-specific data}
 }
 \value{
 plot

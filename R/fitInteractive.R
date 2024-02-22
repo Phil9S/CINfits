@@ -64,7 +64,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         title = "CNfits",
         shiny::titlePanel(title = "CNfits"),
         ## add keybinding for accept and reject fits using "y" and "n"
-        tags$script(HTML("$(function(){
+        shiny::tags$script(shiny::HTML("$(function(){
       $(document).keyup(function(e) {
       if (e.which == 89) {
         $('#accept_fit').click()
@@ -221,7 +221,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         # upload partial or pre-existing qc file
-        observeEvent(input$uploadQC,{
+        shiny::observeEvent(input$uploadQC,{
             inFile <- input$uploadQC
             qcUploadTab <- data.table::fread(inFile$datapath)
             if(!all(colnames(qcUploadTab) %in% c("sample","segments","clonality",
@@ -272,7 +272,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
             df$ploidy[df$sample == input$var] <- input$pl_new
             df$purity[df$sample == input$var] <- input$pu_new
-            updateTextAreaInput(inputId = "notes_fit",value = "")
+            shiny::updateTextAreaInput(inputId = "notes_fit",value = "")
 
             ## update profile in data.list
             new_fit <- rescaleFit(data = data.list[[input$var]],
@@ -437,8 +437,8 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
         if(autoSave){
             autoCount <- 0
-            autoSaveTrigger <- reactiveTimer(intervalMs = autoSaveInt*60000,session = session)
-            observe({
+            autoSaveTrigger <- shiny::reactiveTimer(intervalMs = autoSaveInt*60000,session = session)
+            shiny::observe({
                 autoSaveTrigger()
                 if(autoCount == 0){
                     output$autosave <- shiny::renderText({paste0("Last saved : never")})
@@ -449,7 +449,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
                 # save QC
                 file <- paste0(wd,"/autosave_",time,"_QC_table",".tsv")
-                write.table(isolate(qcData$data),file,quote = F,sep = "\t",append = F,
+                utils::write.table(shiny::isolate(qcData$data),file,quote = F,sep = "\t",append = F,
                             row.names = F,col.names = T)
 
                 # Save fits
@@ -457,7 +457,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                     return(x)}
                 ))
                 fileF <- paste0(wd,"/autosave_",time,"_seg_table",".tsv")
-                write.table(dataF,fileF,quote = F,sep = "\t",append = F,
+                utils::write.table(dataF,fileF,quote = F,sep = "\t",append = F,
                             row.names = F,col.names = T)
 
                 # report last save
@@ -471,7 +471,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                 paste0(Sys.Date(),"_QC_table",".tsv")
             },
             content = function(file) {
-                write.table(qcData$data,file,quote = F,sep = "\t",append = F,
+                utils::write.table(qcData$data,file,quote = F,sep = "\t",append = F,
                             row.names = F,col.names = T)
             }
         )
@@ -484,7 +484,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                 dataF <- do.call(rbind,lapply(data.list,FUN = function(x){
                     return(x)}
                     ))
-                write.table(dataF,file,quote = F,sep = "\t",append = F,
+                utils::write.table(dataF,file,quote = F,sep = "\t",append = F,
                             row.names = F,col.names = T)
             }
         )

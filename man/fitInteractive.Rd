@@ -4,7 +4,12 @@
 \alias{fitInteractive}
 \title{fitInteractive}
 \usage{
-fitInteractive(data = NULL, metadata = NULL)
+fitInteractive(
+  data = NULL,
+  metadata = NULL,
+  autoSave = FALSE,
+  autoSaveInt = 15
+)
 }
 \arguments{
 \item{data}{data.frame or list of segmented copy number profiles}
@@ -12,6 +17,11 @@ fitInteractive(data = NULL, metadata = NULL)
 \item{metadata}{data.frame containing meta data for the samples contained in
 data. This should include at least 3 columns; 'sample', 'ploidy', and
 'purity'.}
+
+\item{autoSave}{boolean value to set if QC table should be automatically saved
+to a temporary location during interactive fitting.}
+
+\item{autoSaveInt}{Time increment (minutes) at which to perform an auto save}
 }
 \value{
 interactive shiny application
