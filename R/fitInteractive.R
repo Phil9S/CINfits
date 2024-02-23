@@ -61,9 +61,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
     ui <- shiny::fluidPage(
         shinyjs::useShinyjs(),
-        title = "CNfits",
-        shiny::titlePanel(title = "CNfits"),
-        ## add keybinding for accept and reject fits using "y" and "n"
+        ## add key binding for accept and reject fits using "y" and "n"
         shiny::tags$script(shiny::HTML("$(function(){
       $(document).keyup(function(e) {
       if (e.which == 89) {
@@ -72,133 +70,102 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
       if (e.which == 78) {
         $('#reject_fit').click()
       }
-      });
-      })")),
-        shiny::tags$head(shiny::tags$style(".btnD { vertical-align: middle; width: 80%; margin: 10px;}")),
-        shiny::column(width = 5,
-            shiny::fluidRow(
-                shiny::column(width = 4,
-                    shiny::fluidRow(
-                        shiny::textOutput(outputId = "autosave"),
-                        shiny::textOutput(outputId = "message"),
-                        shiny::h3("Sample"),
-                        shiny::selectInput("var",label = NULL,choices = names(data.list)),
-                        shiny::fluidRow(
-                            shiny::column(4,shiny::checkboxInput("as",label = "allele-specific",value = FALSE)),
-                            shiny::column(4,shiny::checkboxInput("round_values",
-                                                                 label = "round segments",value = FALSE)),
-                            shiny::column(4,shiny::checkboxInput("smoothProfile",
-                                                                 label = "smooth segments",value = FALSE))
-                            ),
-                        shiny::hr()
-                    ),
-                    shiny::fluidRow(
-                        shiny::conditionalPanel(condition = "input.smoothProfile == true",
-                                                shiny::h4("smoothing parameters"),
-                                                shiny::sliderInput("smoothFactor",label = "smoothing factor",
-                                                                   min = 0,max = 0.5,step = 0.01,value = 0.12),
-                                                shiny::hr()
-                        )
-                    ),
-                    shiny::fluidRow(
-                        shiny::fileInput("uploadQC",
-                                         label = "Upload QC file",
-                                         multiple = F,
-                                         accept = c(".tsv",".csv"),
-                                         buttonLabel = "upload",
-                                         placeholder = "upload qc file..."),
-                        shiny::hr(),
-                        shiny::h4("fit selection"),
-                        shiny::fluidRow(
-                            shiny::column(4,shiny::actionButton("accept_fit",label = "accept (y)",width = '100%')),
-                            shiny::column(4,shiny::actionButton("reject_fit",label = "reject (n)",width = '100%')),
-                            shiny::column(4,shiny::actionButton("refit_fit",label = "refit",width = '100%'))
-                        ),
-                        shiny::textAreaInput("notes_fit",label = "notes",
-                                             placeholder = "Add fit notes here..."),
-                        shiny::hr()
-                    )
+      });})")),
+        shiny::tags$head(shiny::tags$style(".btnD { vertical-align: middle; width: 100%; margin: 10px;}")),
+        shiny::navbarPage(title ="CNfits",collapsible = TRUE,position = "fixed-top",
+            shiny::tabPanel(title = "fittng",value = "fitTab",
+                shiny::fluidRow(
+                shiny::h3(tags$b("Copy number fitting"))
                 ),
-                shiny::column(width = 7,
-                    shiny::fluidRow(
-                        shiny::column(6,
-                            shiny::h4("fit parameters"),
-                            shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,
-                                           step = 0.01,value = 2),
-                            shiny::sliderInput("pu_new","purity",min = 0.2,max = 1,
-                                           step = 0.01,value = 0.7)
+                shiny::fluidRow(
+                    shiny::column(5,
+                        shiny::fluidRow(
+                            shiny::textOutput(outputId = "autosave"),
+                            shiny::textOutput(outputId = "message"),
                         ),
-                        shiny::column(6,
-                            shiny::h4("segment colours"),
-                            shiny::conditionalPanel(condition = "input.as == true",
-                                                    shiny::column(6,
-                                                                  colourpicker::colourInput(inputId = "nA",
-                                                                                            label = "allele A",
-                                                                                            value = "red",
-                                                                                            allowTransparent = F)),
-                                                    shiny::column(6,
-                                                                  colourpicker::colourInput(inputId = "nB",
-                                                                                            label = "allele B",
-                                                                                            value = "blue",
-                                                                                            allowTransparent = F))
-
+                        shiny::fluidRow(
+                            shiny::column(5,
+                                shiny::h4("Sample"),
+                                shiny::selectInput("var",label = NULL,choices = names(data.list)),
+                                shiny::fluidRow(
+                                    shiny::column(4,shiny::checkboxInput("as",label = "allele-specific",value = FALSE)),
+                                    shiny::column(4,shiny::checkboxInput("round_values",label = "round segments",value = FALSE)),
+                                    shiny::column(4,shiny::checkboxInput("smoothProfile",label = "smooth segments",value = FALSE))
+                                ),
+                                shiny::conditionalPanel(condition = "input.smoothProfile == true",
+                                    shiny::h4("Smoothing parameters"),
+                                    shiny::sliderInput("smoothFactor",label = "smoothing factor",min = 0,max = 0.5,step = 0.01,value = 0.12)),
+                                shiny::h4("Upload QC"),
+                                shiny::fileInput("uploadQC",label = NULL,multiple = F,accept = c(".tsv",".csv"),buttonLabel = "upload",placeholder = "upload qc file...")
                             ),
-                            shiny::conditionalPanel(condition = "input.as == false",
-                                                    shiny::column(12,
-                                                                  colourpicker::colourInput(inputId = "totcol",
-                                                                                            label = "total CN",
-                                                                                            value = "red",
-                                                                                            allowTransparent = F))
-                            ),
-                            shiny::actionButton(inputId = "resetPlPu",label = "reset fit parameters",width = '100%',height = '100px')
-                        )
-                    )
-                ),
-            ),
-            shiny::fluidRow(
-                shiny::column(width = 12,
-                    shiny::fluidRow(
-                        shiny::h3("QC table"),
-                        shiny::column(10,
-                            DT::dataTableOutput(outputId = "qc_table")
+                            shiny::column(6,
+                                shiny::fluidRow(
+                                    shiny::h4("Fit parameters"),
+                                    shiny::column(6,shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.01,value = 2)),
+                                    shiny::column(6,shiny::sliderInput("pu_new","purity",min = 0.2,max = 1,step = 0.01,value = 0.7))
+                                ),
+                                shiny::fluidRow(
+                                    shiny::h4("Segment colours"),
+                                    shiny::conditionalPanel(condition = "input.as == true",
+                                        shiny::column(6,colourpicker::colourInput(inputId = "nA",label = "allele A",value = "red",allowTransparent = F,showColour = "background",closeOnClick = TRUE)),
+                                        shiny::column(6,colourpicker::colourInput(inputId = "nB",label = "allele B",value = "blue",allowTransparent = F,showColour = "background",closeOnClick = TRUE))),
+                                    shiny::conditionalPanel(condition = "input.as == false",
+                                                            shiny::column(12,colourpicker::colourInput(inputId = "totcol",label = "total copy number",value = "red",allowTransparent = F,showColour = "background",closeOnClick = TRUE)))
+                                    ),
+                                shiny::fluidRow(
+                                    shiny::actionButton(inputId = "resetPlPu",label = "reset fit parameters",width = '100%',height = '100px')
+                                ),
+                            )
                         ),
-                        shiny::column(2,
-                            shiny::downloadButton(outputId = "saveQC",
-                                                  class = "btnD",
-                                                  label = "save QC"),
-                            shiny::downloadButton(outputId = "saveFits",
-                                                  class = "btnD",
-                                                  label = "save fits")
+                        shiny::fluidRow(
+                            shiny::column(12,
+                                shiny::h4("Fit selection"),
+                                shiny::fluidRow(
+                                    shiny::column(6,
+                                                  shiny::column(4,shiny::actionButton("accept_fit",label = "accept (y)",width = '100%')),
+                                                  shiny::column(4,shiny::actionButton("reject_fit",label = "reject (n)",width = '100%')),
+                                                  shiny::column(4,shiny::actionButton("refit_fit",label = "refit",width = '100%'))
+                                    ),
+                                    shiny::column(6,
+                                                  shiny::textAreaInput("notes_fit",label = NULL,placeholder = "Add fit notes here...",width = '100%')
+                                    )
+                                ),
+                            )
+                        ),
+                        shiny::fluidRow(
+                            shiny::column(12,
+                                shiny::h4("QC table"),
+                                shiny::fluidRow(
+                                    DT::dataTableOutput(outputId = "qc_table")
+                                ),
+                                shiny::fluidRow(
+                                    shiny::column(2,offset = 8,shiny::downloadButton(outputId = "saveQC",class = "btnD",label = "save QC")),
+                                    shiny::column(2,shiny::downloadButton(outputId = "saveFits",class = "btnD",label = "save fits"))
+                                )
+                            )
                         )
-                    )
-                )
-            ),
-        ),
-        shiny::column(width = 7,
-            shiny::fluidRow(
-                    shiny::fluidRow(
-                        shiny::column(width = 8,offset = 1,
+                    ),
+                    shiny::column(7,
+                        shiny::fluidRow(
                             shiny::h3("Original profile"),
-                            shiny::column(10,
-                                shiny::plotOutput("original_fit")
-                            ),
-                            shiny::column(2,
-                                shiny::tableOutput("fit_stat")
+                            shiny::fluidRow(
+                                shiny::column(10,shiny::plotOutput("original_fit")),
+                                shiny::column(1,shiny::tableOutput("fit_stat"))
                             )
-                        )
-                    ),
-                    shiny::fluidRow(
-                        shiny::column(width = 8,offset = 1,
+                        ),
+                        shiny::fluidRow(
                             shiny::h3("refit profile"),
-                            shiny::column(10,
-                                shiny::plotOutput("new_fit")
-                            ),
-                            shiny::column(2,
-                                shiny::tableOutput("new_stat")
+                            shiny::fluidRow(
+                                shiny::column(10,shiny::plotOutput("new_fit")),
+                                shiny::column(1,shiny::tableOutput("new_stat"))
                             )
                         )
                     )
                 )
+            ),
+            shiny::tabPanel(title = "ML",value = "mlTab"
+
+            )
         )
     )
 
