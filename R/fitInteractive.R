@@ -57,11 +57,17 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         AS <- FALSE
     }
 
+    # drop 1bp segments
+    data <- data[which(data$end - data$start > 1),]
+
+    data <- droplevels(data)
+
     data.list <- split(data,f = data$sample)
 
     ui <- shiny::fluidPage(
         shinyjs::useShinyjs(),
         ## add key binding for accept and reject fits using "y" and "n"
+        ## CAUSES ISSUES WHEN ENTERING NOTES
         shiny::tags$script(shiny::HTML("$(function(){
       $(document).keyup(function(e) {
       if (e.which == 89) {
@@ -86,7 +92,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                         shiny::fluidRow(
                             shiny::column(5,
                                 shiny::h4("Sample"),
-                                shiny::selectInput("var",label = NULL,choices = names(data.list)),
+                                shiny::selectInput("var",label = NULL,choices = NULL),
                                 shiny::fluidRow(
                                     shiny::column(4,shiny::checkboxInput("as",label = "allele-specific",value = FALSE)),
                                     shiny::column(4,shiny::checkboxInput("round_values",label = "round segments",value = FALSE)),
@@ -107,10 +113,10 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                                 shiny::fluidRow(
                                     shiny::h4("Segment colours"),
                                     shiny::conditionalPanel(condition = "input.as == true",
-                                        shiny::column(6,colourpicker::colourInput(inputId = "nA",label = "allele A",value = "red",allowTransparent = F,showColour = "background",closeOnClick = TRUE)),
-                                        shiny::column(6,colourpicker::colourInput(inputId = "nB",label = "allele B",value = "blue",allowTransparent = F,showColour = "background",closeOnClick = TRUE))),
+                                        shiny::column(6,colourpicker::colourInput(inputId = "nA",label = "allele A",value = "blue",allowTransparent = F,showColour = "background",closeOnClick = TRUE)),
+                                        shiny::column(6,colourpicker::colourInput(inputId = "nB",label = "allele B",value = "darkred",allowTransparent = F,showColour = "background",closeOnClick = TRUE))),
                                     shiny::conditionalPanel(condition = "input.as == false",
-                                                            shiny::column(12,colourpicker::colourInput(inputId = "totcol",label = "total copy number",value = "red",allowTransparent = F,showColour = "background",closeOnClick = TRUE)))
+                                                            shiny::column(12,colourpicker::colourInput(inputId = "totcol",label = "total copy number",value = "blue",allowTransparent = F,showColour = "background",closeOnClick = TRUE)))
                                     ),
                                 shiny::fluidRow(
                                     shiny::actionButton(inputId = "resetPlPu",label = "reset fit parameters",width = '100%',height = '100px')
@@ -187,6 +193,11 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             qcData$data <- qctable
         })
 
+        # Inititalise sample list
+        observe({
+            shiny::updateSelectizeInput(session,inputId = "var",server = TRUE,
+                                     choices = names(data.list))
+        })
         # upload partial or pre-existing qc file
         shiny::observeEvent(input$uploadQC,{
             inFile <- input$uploadQC
@@ -198,7 +209,11 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             } else {
                 qcData$data <- qcUploadTab
 
-                min_pos <- min(which(is.na(qcData$data$use)))
+                if(any(is.na(qcData$data$use))){
+                    min_pos <- min(which(is.na(qcData$data$use)))
+                } else {
+                    min_pos <- 1
+                }
                 selectedSample <- names(data.list)[min_pos]
                 shiny::updateSelectInput(session,inputId = "var",
                                          selected = selectedSample)
@@ -217,7 +232,11 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
             qcData$data <- df
 
-            min_pos <- min(which(is.na(qcData$data$use)))
+            if(any(is.na(qcData$data$use))){
+                min_pos <- min(which(is.na(qcData$data$use)))
+            } else {
+                min_pos <- 1
+            }
             selectedSample <- names(data.list)[min_pos]
 
             shiny::updateSelectInput(session,inputId = "var",
@@ -232,9 +251,9 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             orig_ploidy <- qcData$data$ploidy[qcData$data$sample == input$var]
             orig_purity <- qcData$data$purity[qcData$data$sample == input$var]
 
-            df$notes[df$sample == input$var] <- paste0("REFIT:original ploidy-",
+            df$notes[df$sample == input$var] <- paste0("REFIT: original ploidy=",
                                                        orig_ploidy,
-                                                       "original purity-",
+                                                       ", original purity=",
                                                        orig_purity,". ",input$notes_fit)
 
             df$ploidy[df$sample == input$var] <- input$pl_new
@@ -253,7 +272,11 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
             qcData$data <- df
 
-            min_pos <- min(which(is.na(qcData$data$use)))
+            if(any(is.na(qcData$data$use))){
+                min_pos <- min(which(is.na(qcData$data$use)))
+            } else {
+                min_pos <- 1
+            }
             selectedSample <- names(data.list)[min_pos]
             shiny::updateSelectInput(session,inputId = "var",
                                      selected = selectedSample)
@@ -271,8 +294,11 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
             qcData$data <- df
 
-            min_pos <- min(which(is.na(qcData$data$use)))
-
+            if(any(is.na(qcData$data$use))){
+                min_pos <- min(which(is.na(qcData$data$use)))
+            } else {
+                min_pos <- 1
+            }
             selectedSample <- names(data.list)[min_pos]
 
             shiny::updateSelectInput(session,inputId = "var",
@@ -296,6 +322,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         output$original_fit <- shiny::renderPlot({
+            req(input$var)
             orig_fit <- data.list[[input$var]]
             orig_purity <- qcData$data$purity[qcData$data$sample == input$var]
 
@@ -325,7 +352,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         output$new_fit <- shiny::renderPlot({
-
+            req(input$var)
             orig_ploidy <- qcData$data$ploidy[qcData$data$sample == input$var]
             orig_purity <- qcData$data$purity[qcData$data$sample == input$var]
 
@@ -369,7 +396,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         output$new_stat <- shiny::renderTable({
-
+            req(input$var)
             orig_ploidy <- qcData$data$ploidy[qcData$data$sample == input$var]
             orig_purity <- qcData$data$purity[qcData$data$sample == input$var]
 
@@ -394,11 +421,19 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
         output$qc_table <- DT::renderDataTable({
             DT::datatable(qcData$data,rownames = FALSE,extensions = 'Scroller',
-                      options = list(pageLength = 5,
-                                     ordering=F,
-                                     scrollY = 200,
-                                     scroller = TRUE,
-                                     searchHighlight = T
+                      options = list(
+                          columnDefs = list(list(targets = "_all",render = DT::JS(
+                              "function(data, type, row, meta) {",
+                              "return type === 'display' && data != null && data.length > 10 ?",
+                              "'<span title=\"' + data + '\">' + data.substr(0, 7) + '...</span>' : data;",
+                              "}")
+                                    )),
+                          class = "display",
+                          pageLength = 5,
+                          ordering=F,
+                          scrollY = 200,
+                          scroller = TRUE,
+                          searchHighlight = T
                                      ))
         })
 

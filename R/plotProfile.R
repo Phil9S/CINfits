@@ -31,7 +31,6 @@ plotProfile <- function(data=NULL,sample=NULL,cn.max=15,purity=NULL,alleleSpecif
             data$segVal <- data$nAraw + data$nBraw
         }
     }
-
     if(max(segTab$segVal) > cn.max){
         segTab$segVal[segTab$segVal > cn.max] <- cn.max
         ylim <- c(0,cn.max)
