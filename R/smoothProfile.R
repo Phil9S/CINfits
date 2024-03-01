@@ -35,6 +35,9 @@ smoothProfile <- function(data=NULL,smoothingFactor=0.12,implementation="linear"
         warning("By default the iterative implementation uses weighted mean method for collapsing segments")
     }
 
+    # drop 1bp segments
+    data <- data[which(data$end - data$start > 1),]
+
     switch(implementation,
         "linear" = {
             dtSmooth <- linearSmooth(data,smoothingFactor,method,alleleSpecific)
@@ -52,6 +55,7 @@ linearSmooth <- function(data,smoothingFactor,method,alleleSpecific){
     if(alleleSpecific){
         segment.table <- data %>%
             dplyr::group_by(.data$chromosome,.data$sample) %>%
+            dplyr::mutate(length = .data$end - .data$start) %>%
             dplyr::mutate(seg_diffA = abs(.data$nAraw - dplyr::lag(.data$nAraw))) %>%
             dplyr::mutate(seg_diffB = abs(.data$nBraw - dplyr::lag(.data$nBraw))) %>%
             ## If either alleles change greater than smoothingFactor mark as different
@@ -59,8 +63,7 @@ linearSmooth <- function(data,smoothingFactor,method,alleleSpecific){
             dplyr::mutate(chng = as.logical(ifelse(is.na(.data$chng),"TRUE",.data$chng))) %>%
             dplyr::mutate(comb = cumsum(.data$chng)) %>%
             dplyr::group_by(.data$chromosome,.data$sample,.data$comb) %>%
-            dplyr::select(-.data$chng) %>%
-            dplyr::mutate(length = .data$end - .data$start)
+            dplyr::select(-.data$chng)
         switch(method,
                "median"={
                    segment.table <- segment.table %>%
