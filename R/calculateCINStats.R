@@ -13,6 +13,7 @@ calculateCINStats <- function(data=NULL){
         stop("no data")
     }
     if(is.data.frame(data)){
+        data <- droplevels(data)
         list.tabs <- split(data,f=data$sample)
     } else {
         list.tabs <- data
@@ -20,9 +21,9 @@ calculateCINStats <- function(data=NULL){
 
     segments <- unlist(lapply(list.tabs,calculateSegmentCounts))
     clonality <- unlist(lapply(list.tabs,calculateClonality))
-    ploidy <-  unlist(lapply(list.tabs,calculatePloidy))
-    homozygousLoss <-  unlist(lapply(list.tabs,calculateHomozygousLoss))
-
-    comb <- cbind(segments,clonality,ploidy,homozygousLoss)
+    ploidy <- unlist(lapply(list.tabs,calculatePloidy))
+    homozygousLoss <- unlist(lapply(list.tabs,calculateHomozygousLoss))
+    #interleaving <- do.call(rbind,lapply(list.tabs,calculateInterleaving))
+    comb <- cbind(segments,clonality,ploidy,homozygousLoss)#,interleaving)
     return(comb)
 }
