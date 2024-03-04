@@ -81,7 +81,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         shiny::navbarPage(title ="CNfits",collapsible = TRUE,position = "fixed-top",
             shiny::tabPanel(title = "fittng",value = "fitTab",
                 shiny::fluidRow(
-                shiny::h3(tags$b("Copy number fitting"))
+                shiny::h3(shiny::tags$b("Copy number fitting"))
                 ),
                 shiny::fluidRow(
                     shiny::column(5,

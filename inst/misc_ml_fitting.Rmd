@@ -1,0 +1,204 @@
+---
+title: "ML"
+output: html_document
+date: "2024-03-04"
+---
+
+```{r libs}
+library(CINfits)
+library(tidymodels)
+```
+
+```{r ext}
+## set cores for parallel compute
+cores <- parallel::detectCores()
+cores <- round(cores*0.8)
+```
+
+```{r data}
+## Load and pre-process data
+cellQC <- data.table::fread("cellLine_fit_qc_table.tsv",header = T,sep = "\t") %>%
+            dplyr::select(-notes) %>%
+            tidyr::drop_na() %>%
+            dplyr::mutate(use = factor(use))
+
+cellQcLong <- cellQC %>% 
+                tidyr::pivot_longer(cols = 2:6,names_to = "features")
+
+# cellSeg <- data.table::fread("cellLine_ascat_sc_fixed_purity_tCN_allSamples.tsv",header = T,sep = "\t") %>%
+#             dplyr::select(chr,startpos,endpos,segVal,sample) %>%
+#             dplyr::rename("chromosome"="chr","start"="startpos","end"="endpos") %>%
+#             CINfits::smoothProfile()
+```
+
+```{r data}
+## Data preview
+head(cellQC)
+dim(cellQC)
+```
+
+```{r plots}
+ggplot(cellQcLong,aes(use,value,colour=use)) +
+    geom_boxplot() +
+    facet_wrap(. ~ features,scales = "free") +
+    theme_bw()
+
+ggplot(cellQcLong,aes(value,colour=use)) +
+    geom_density() +
+    facet_wrap(. ~ features,scales = "free") +
+    theme_bw()
+```
+
+```{r datasplit}
+# Set seed
+set.seed(0990)
+
+## Perform data split using 70/20/10 split and stratified sampling to balance outcome class
+dataSplit <- rsample::initial_split(cellQC,prop = 0.7,strata = use)
+
+## Set training and test data sets
+trainingData <- rsample::training(dataSplit)
+#validationData <- rsample::validation(dataSplit)
+testingData <- rsample::testing(dataSplit)
+```
+
+```{r outcomeBalance}
+## Check class balance
+table(trainingData$use,dnn = "training") / sum(table(trainingData$use))
+#table(validationData$use,dnn = "validation") / sum(table(validationData$use))
+table(testingData$use,dnn = "testing") / sum(table(testingData$use))
+```
+
+```{r setmodelreceipe}
+## Set recipe for model
+# update sample column to be ID rather than predictor
+modelRecipe <- recipe(use ~ .,data = trainingData) %>%
+                update_role(sample,new_role = "ID") %>%
+                step_normalize(all_predictors())
+    
+summary(modelRecipe)
+```
+
+## Set cross-fold validation
+
+```{r CVfolds}
+## Set number of folds for cross-validation in training set
+folds <- vfold_cv(trainingData, v = 10,strata = use)
+```
+
+## logistic regression
+
+```{r lgModel}
+## Set logistic regression with glmnet engine/function
+lgm_glmnet <- 
+  logistic_reg(penalty = tune(),mixture = 1) %>% 
+  set_engine("glmnet")
+```
+
+```{r lgworkflow}
+## Set workflow by combining model and recipe into single model object
+lgm_glmnet_WF <- workflow() %>%
+            add_model(lgm_glmnet) %>%
+            add_recipe(modelRecipe)
+```
+
+```{r lgtune}
+lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
+
+lr_res <- lgm_glmnet_WF %>% 
+            tune_grid(folds,
+                grid = lr_reg_grid,
+                control = control_grid(save_pred = TRUE),
+                metrics = metric_set(roc_auc))
+
+lr_best <- lr_res %>% 
+    show_best("roc_auc", n = 15) %>% 
+    arrange(penalty) %>%
+    slice(14)
+
+lr_auc <- lr_res %>% 
+    collect_predictions(parameters = lr_best) %>% 
+    roc_curve(use, .pred_FALSE) %>% 
+    mutate(model = "Logistic Regression")
+```
+
+## Random forest
+
+```{r rfModel}
+## Set logistic regression using glm engine/function
+rf_ranger <- rand_forest(mtry = tune(),min_n = tune(),trees = 1000) %>% 
+        set_engine("ranger",importance = "impurity") %>% 
+        set_mode("classification")
+```
+
+```{r rfworkflow}
+## Set workflow by combining model and recipe into single model object
+rf_ranger_WF <- workflow() %>%
+            add_model(rf_ranger) %>%
+            add_recipe(modelRecipe)
+```
+
+```{r rftune}
+rf_res <- rf_ranger_WF %>% 
+            tune_grid(folds,
+                grid = 25,
+                control = control_grid(save_pred = TRUE),
+                metrics = metric_set(roc_auc))
+```
+
+```{r selectTuned}
+rf_best <- rf_res %>% 
+            select_best(metric = "roc_auc")
+rf_auc <- rf_res %>% 
+            collect_predictions(parameters = rf_best) %>% 
+            roc_curve(use, .pred_FALSE) %>% 
+            mutate(model = "Random Forest")
+```
+
+## Compare models
+
+```{r compare}
+bind_rows(rf_auc, lr_auc) %>% 
+    ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+    geom_path(lwd = 1.5, alpha = 0.8) +
+    geom_abline(lty = 3) + 
+    coord_equal() + 
+    scale_color_viridis_d(option = "plasma", end = .6) +
+    theme_bw
+    
+```
+
+
+```{r lastModel}
+last_rf_mod <- rand_forest(mtry = rf_best$mtry, min_n = rf_best$min_n, trees = 1000) %>% 
+    set_engine("ranger", num.threads = cores, importance = "impurity") %>%
+    set_mode("classification")
+
+last_rf_workflow <- rf_ranger_WF %>% 
+    update_model(last_rf_mod)
+```
+
+```{r lastfit}
+last_rf_fit <- last_rf_workflow %>% 
+    last_fit(dataSplit)
+```
+
+```{r modelPerf}
+last_rf_fit %>%
+    collect_metrics()
+
+last_rf_fit %>%
+    extract_fit_parsnip() %>% 
+    vip(num_features = 20) +
+    theme_bw()
+
+last_rf_fit %>% 
+    collect_predictions() %>% 
+    roc_curve(use, .pred_FALSE) %>% 
+    autoplot()
+
+```
+
+```{r session}
+sessionInfo()
+```
