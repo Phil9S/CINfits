@@ -7,6 +7,10 @@ date: "2024-03-04"
 ```{r libs}
 library(CINfits)
 library(tidymodels)
+library(glmnet)
+library(ranger)
+library(vip)
+library(xgboost)
 ```
 
 ```{r ext}
@@ -31,7 +35,7 @@ cellQcLong <- cellQC %>%
 #             CINfits::smoothProfile()
 ```
 
-```{r data}
+```{r datapre}
 ## Data preview
 head(cellQC)
 dim(cellQC)
@@ -69,12 +73,21 @@ table(trainingData$use,dnn = "training") / sum(table(trainingData$use))
 table(testingData$use,dnn = "testing") / sum(table(testingData$use))
 ```
 
+## correlated predictors
+
+```{r corr}
+corrMat <- cor(as.matrix(cellQC[,c(2:6)]),method = "spearman")
+testRes = corrplot::cor.mtest(as.matrix(cellQC[,c(2:6)]),method = "spearman", conf.level = 0.95)
+corrplot::corrplot(corr = corrMat,p.mat = testRes$p, method = 'number',type="upper")
+```
+
 ```{r setmodelreceipe}
 ## Set recipe for model
 # update sample column to be ID rather than predictor
 modelRecipe <- recipe(use ~ .,data = trainingData) %>%
                 update_role(sample,new_role = "ID") %>%
-                step_normalize(all_predictors())
+                step_zv(all_predictors()) %>%
+                step_corr(all_predictors(),)
     
 summary(modelRecipe)
 ```
@@ -90,9 +103,8 @@ folds <- vfold_cv(trainingData, v = 10,strata = use)
 
 ```{r lgModel}
 ## Set logistic regression with glmnet engine/function
-lgm_glmnet <- 
-  logistic_reg(penalty = tune(),mixture = 1) %>% 
-  set_engine("glmnet")
+lgm_glmnet <- logistic_reg(penalty = tune(),mixture = 1) %>% 
+    set_engine("glmnet")
 ```
 
 ```{r lgworkflow}
@@ -106,20 +118,44 @@ lgm_glmnet_WF <- workflow() %>%
 lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
 
 lr_res <- lgm_glmnet_WF %>% 
-            tune_grid(folds,
+            tune_grid(resamples = folds,
                 grid = lr_reg_grid,
                 control = control_grid(save_pred = TRUE),
-                metrics = metric_set(roc_auc))
+                metrics = metric_set(accuracy))
+```
 
+```{r lgselectTuning}
 lr_best <- lr_res %>% 
-    show_best("roc_auc", n = 15) %>% 
-    arrange(penalty) %>%
-    slice(14)
+    select_best("accuracy",n = 15)
 
-lr_auc <- lr_res %>% 
-    collect_predictions(parameters = lr_best) %>% 
+lgm_glmnet_WF <- finalize_workflow(lgm_glmnet_WF,lr_best)
+```
+
+```{r lglastfit}
+lr_res_final <- last_fit(lgm_glmnet_WF,dataSplit)
+collect_metrics(lr_res_final)
+```
+
+```{r lgpred}
+lr_auc <- lr_res_final %>%
+  collect_predictions() %>% 
+  roc_curve(use, .pred_FALSE) %>% 
+  mutate(model = "Logistic Regression")
+```
+
+```{r modelPerflg}
+lr_res_final %>%
+    collect_metrics()
+
+lr_res_final %>%
+    extract_fit_parsnip() %>% 
+    vip(num_features = 20) +
+    theme_bw()
+
+lr_res_final %>% 
+    collect_predictions() %>% 
     roc_curve(use, .pred_FALSE) %>% 
-    mutate(model = "Logistic Regression")
+    autoplot()
 ```
 
 ## Random forest
@@ -149,54 +185,150 @@ rf_res <- rf_ranger_WF %>%
 ```{r selectTuned}
 rf_best <- rf_res %>% 
             select_best(metric = "roc_auc")
-rf_auc <- rf_res %>% 
-            collect_predictions(parameters = rf_best) %>% 
-            roc_curve(use, .pred_FALSE) %>% 
-            mutate(model = "Random Forest")
+```
+
+```{r finalrf}
+final_rf <- finalize_workflow(
+  rf_ranger_WF,
+  rf_best)
+
+final_rf_res <- last_fit(final_rf, dataSplit)
+collect_metrics(final_rf_res)
+```
+
+```{r predrf}
+rf_auc <- final_rf_res %>%
+  collect_predictions()  %>%
+  roc_curve(use, .pred_FALSE) %>%
+  mutate(model = "random forest")
+```
+
+```{r modelPerfRF}
+final_rf_res %>%
+    collect_metrics()
+
+final_rf_res %>%
+    extract_fit_parsnip() %>% 
+    vip(num_features = 20) +
+    theme_bw()
+
+final_rf_res %>% 
+    collect_predictions() %>% 
+    roc_curve(use, .pred_FALSE) %>% 
+    autoplot()
+```
+
+### xbg
+
+```{r setxgbt}
+bt_xgb <- boost_tree(mtry = tune(),
+                     tree_depth = tune(),
+                     learn_rate = tune(),
+                     sample_size = tune(),
+                     loss_reduction = tune(),
+                     min_n = tune(),
+                     trees = 1000) %>%
+    set_mode("classification") %>%
+    set_engine("xgboost")
+```
+
+```{r xgbWF}
+bt_WF <- workflow() %>%
+            add_model(bt_xgb) %>%
+            add_recipe(modelRecipe)
+```
+
+```{r tunexgb}
+xgb_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), trainingData),
+  learn_rate(),
+  size = 30
+)
+
+bt_res <- bt_WF %>%
+            tune_grid(resamples = folds,
+                grid = xgb_grid,
+                control = control_grid(save_pred = TRUE))
+```
+
+```{r xgbMetrics}
+bt_auc <- select_best(bt_res, "roc_auc")
+```
+
+```{r finalxgb}
+final_xgb <- finalize_workflow(
+  bt_WF,
+  bt_auc)
+
+final_xgb_res <- last_fit(final_xgb, dataSplit)
+collect_metrics(final_xgb_res)
+```
+
+```{r predxgb}
+bt_auc <- final_xgb_res %>%
+  collect_predictions()  %>%
+  roc_curve(use, .pred_FALSE) %>%
+  mutate(model = "boosted trees (xgb)")
+```
+
+```{r modelPerfxgb}
+final_xgb_res %>%
+    collect_metrics()
+
+final_xgb_res %>%
+    extract_fit_parsnip() %>% 
+    vip(num_features = 20) +
+    theme_bw()
+
+final_xgb_res %>% 
+    collect_predictions() %>% 
+    roc_curve(use, .pred_FALSE) %>% 
+    autoplot()
 ```
 
 ## Compare models
 
 ```{r compare}
-bind_rows(rf_auc, lr_auc) %>% 
+metrics <- metric_set(precision,accuracy,recall,f_meas,roc_auc)
+lr_metrics <- lr_res_final %>%
+    collect_predictions() %>%
+    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
+    mutate(model = "logistic regression")
+
+rf_metrics <- final_rf_res %>%
+    collect_predictions() %>%
+    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
+    mutate(model = "random forest")
+
+xgb_metrics <- final_xgb_res %>%
+    collect_predictions() %>%
+    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
+    mutate(model = "boosted tree (xgb)")
+
+bind_rows(lr_metrics,rf_metrics,xgb_metrics) %>%
+    ggplot(aes(.metric,.estimate,fill=model)) +
+        geom_col(position = "dodge") +
+        facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
+        scale_fill_viridis_d(option = "plasma", end = .6) +
+        theme_bw() + theme(legend.position = "bottom")
+
+
+bind_rows(rf_auc,lr_auc,bt_auc) %>% 
     ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-    geom_path(lwd = 1.5, alpha = 0.8) +
-    geom_abline(lty = 3) + 
-    coord_equal() + 
-    scale_color_viridis_d(option = "plasma", end = .6) +
-    theme_bw
-    
-```
+        geom_path(lwd = 1.5, alpha = 0.8) +
+        geom_abline(lty = 3) + 
+        coord_equal() + 
+        scale_color_viridis_d(option = "plasma", end = .6) +
+        theme_bw()
 
-
-```{r lastModel}
-last_rf_mod <- rand_forest(mtry = rf_best$mtry, min_n = rf_best$min_n, trees = 1000) %>% 
-    set_engine("ranger", num.threads = cores, importance = "impurity") %>%
-    set_mode("classification")
-
-last_rf_workflow <- rf_ranger_WF %>% 
-    update_model(last_rf_mod)
-```
-
-```{r lastfit}
-last_rf_fit <- last_rf_workflow %>% 
-    last_fit(dataSplit)
-```
-
-```{r modelPerf}
-last_rf_fit %>%
-    collect_metrics()
-
-last_rf_fit %>%
-    extract_fit_parsnip() %>% 
-    vip(num_features = 20) +
-    theme_bw()
-
-last_rf_fit %>% 
-    collect_predictions() %>% 
-    roc_curve(use, .pred_FALSE) %>% 
-    autoplot()
-
+bind_rows(lr_metrics,rf_metrics,xgb_metrics) %>%
+    select(-.estimator) %>%
+    pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
+    arrange(desc(recall))
 ```
 
 ```{r session}
