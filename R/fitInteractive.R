@@ -194,7 +194,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         # Inititalise sample list
-        observe({
+        shiny::observe({
             shiny::updateSelectizeInput(session,inputId = "var",server = TRUE,
                                      choices = names(data.list))
         })
@@ -322,7 +322,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         output$original_fit <- shiny::renderPlot({
-            req(input$var)
+            shiny::req(input$var)
             orig_fit <- data.list[[input$var]]
             orig_purity <- qcData$data$purity[qcData$data$sample == input$var]
 
@@ -352,7 +352,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         output$new_fit <- shiny::renderPlot({
-            req(input$var)
+            shiny::req(input$var)
             orig_ploidy <- qcData$data$ploidy[qcData$data$sample == input$var]
             orig_purity <- qcData$data$purity[qcData$data$sample == input$var]
 
@@ -396,7 +396,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         })
 
         output$new_stat <- shiny::renderTable({
-            req(input$var)
+            shiny::req(input$var)
             orig_ploidy <- qcData$data$ploidy[qcData$data$sample == input$var]
             orig_purity <- qcData$data$purity[qcData$data$sample == input$var]
 

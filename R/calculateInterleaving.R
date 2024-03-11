@@ -12,7 +12,7 @@ calculateInterleaving <- function(data=NULL,states=4,distance=0.2){
                     #dplyr::group_by(.data$chromosome) %>%
                     dplyr::mutate(pctLen = .data$length / sum(.data$length)) %>%
                     dplyr::group_by(.data$segValDist) %>%
-                    dplyr::summarise(across(.data$pctLen,sum))
+                    dplyr::summarise(dplyr::across(.data$pctLen,sum))
 
     data.filt <- as.data.frame(data.filt)
     if(nrow(data.filt) < states){
