@@ -93,6 +93,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                             shiny::column(5,
                                 shiny::h4("Sample"),
                                 shiny::selectInput("var",label = NULL,choices = NULL),
+                                shiny::textOutput("sampleN"),
                                 shiny::fluidRow(
                                     shiny::column(4,shiny::checkboxInput("as",label = "allele-specific",value = FALSE)),
                                     shiny::column(4,shiny::checkboxInput("round_values",label = "round segments",value = FALSE)),
@@ -197,6 +198,11 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         shiny::observe({
             shiny::updateSelectizeInput(session,inputId = "var",server = TRUE,
                                      choices = names(data.list))
+            output$sampleN <- shiny::renderText({
+                currn <- which(names(data.list) %in% input$var)
+                messn <- paste0(currn," of ",length(names(data.list)))
+                return(messn)
+            })
         })
         # upload partial or pre-existing qc file
         shiny::observeEvent(input$uploadQC,{
