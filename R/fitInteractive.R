@@ -37,7 +37,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
     if (!requireNamespace("colourpicker", quietly = TRUE)) {
         stop(
-            "Package \"shinyjs\" must be installed to use interactive fitting",
+            "Package \"colourpicker\" must be installed to use interactive fitting",
             call. = FALSE
         )
     }

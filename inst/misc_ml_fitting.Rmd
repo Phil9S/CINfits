@@ -37,8 +37,8 @@ cellQcLong <- cellQC %>%
 
 ```{r datapre}
 ## Data preview
-head(cellQC)
 dim(cellQC)
+head(cellQC)
 ```
 
 ```{r plots}
@@ -97,6 +97,65 @@ summary(modelRecipe)
 ```{r CVfolds}
 ## Set number of folds for cross-validation in training set
 folds <- vfold_cv(trainingData, v = 10,strata = use)
+```
+
+## linear SVM
+
+```{r linsvmModel}
+#set linear svm
+linsvm_mod <- svm_rbf(cost = tune(), rbf_sigma = tune()) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab")
+```
+
+```{r linsvmworkflow}
+linsvm_WF <- workflow() %>%
+            add_model(linsvm_mod) %>%
+            add_recipe(modelRecipe)
+```
+
+```{r linsvmtune}
+#lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
+
+linsvm_res <- linsvm_WF %>% 
+            tune_grid(resamples = folds,
+                #grid = lr_reg_grid,
+                control = control_grid(save_pred = TRUE),
+                metrics = metric_set(accuracy))
+```
+
+```{r linsvmselectTuning}
+linsvm_best <- linsvm_res %>% 
+    select_best("accuracy",n = 15)
+
+linsvm_WF <- finalize_workflow(linsvm_WF,linsvm_best)
+```
+
+```{r linsvmlastfit}
+linsvm_res_final <- last_fit(linsvm_WF,dataSplit)
+collect_metrics(linsvm_res_final)
+```
+
+```{r linsvmpred}
+linsv_auc <- linsvm_res_final %>%
+  collect_predictions() %>% 
+  roc_curve(use, .pred_FALSE) %>% 
+  mutate(model = "SVM (linear)")
+```
+
+```{r modelPerflinsvm}
+linsvm_res_final %>%
+    collect_metrics()
+
+# linsvm_res_final %>%
+#     extract_fit_parsnip() %>% 
+#     vip(num_features = 20) +
+#     theme_bw()
+
+linsvm_res_final %>% 
+    collect_predictions() %>% 
+    roc_curve(use, .pred_FALSE) %>% 
+    autoplot()
 ```
 
 ## logistic regression
@@ -294,10 +353,17 @@ final_xgb_res %>%
 
 ```{r compare}
 metrics <- metric_set(precision,accuracy,recall,f_meas,roc_auc)
+
 lr_metrics <- lr_res_final %>%
     collect_predictions() %>%
     metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
     mutate(model = "logistic regression")
+
+linsvm_metrics <- linsvm_res_final %>%
+    collect_predictions() %>%
+    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
+    mutate(model = "SVM (linear)")
+
 
 rf_metrics <- final_rf_res %>%
     collect_predictions() %>%
