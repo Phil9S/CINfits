@@ -78,10 +78,9 @@ corrplot::corrplot(corr = corrMat,p.mat = testRes$p, method = 'number',type="upp
 ```{r setmodelreceipe}
 ## Set recipe for model
 # update sample column to be ID rather than predictor
-modelRecipe <- recipe(use ~ .,data = trainingData) %>%
-                update_role(sample,new_role = "ID") %>%
-                step_zv(all_predictors()) %>%
-                step_corr(all_predictors())
+
+modelRecipeCV <- makeModelRecipe(data = trainingData,folds = 10,strata = "use")
+modelRecipe <- modelRecipeCV$recipe
     
 summary(modelRecipe)
 ```
@@ -90,7 +89,7 @@ summary(modelRecipe)
 
 ```{r CVfolds}
 ## Set number of folds for cross-validation in training set
-folds <- vfold_cv(trainingData, v = 10,strata = "use")
+folds <- modelRecipeCV$folds
 ```
 
 ## RBF SVM

@@ -1,3 +1,11 @@
+#' getContingencyTable
+#'
+#' @param model
+#' @param var
+#'
+#' @return contingency table
+#' @export
+#'
 getContingencyTable <- function(model = NULL,var = "use"){
     if(!inherits(lr_res_final,c("last_fit"))){
         stop("model required to be last fit")

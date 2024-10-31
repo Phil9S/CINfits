@@ -320,12 +320,10 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             trainingData <- dfSplit$trainingData
             testingData <- dfSplit$testingDat
 
-            modelRecipe <- recipe(use ~ .,data = trainingData) %>%
-                update_role(sample,new_role = "ID") %>%
-                step_zv(all_predictors()) %>%
-                step_corr(all_predictors())
+            ModelRecipe_CV <- makeModelRecipe(data = trainingData,folds = input$folds)
+            modelRecipe <- ModelRecipe_CV$recipe
 
-            folds <- vfold_cv(trainingData, v = input$folds,strata = "use")
+            folds <- ModelRecipe_CV$cv
 
             switch(input$mlmodel,
                    "x-gradient-boost-trees"={
