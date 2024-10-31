@@ -35,6 +35,13 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         )
     }
 
+    if (!requireNamespace("shinycssloaders", quietly = TRUE)) {
+        stop(
+            "Package \"shinyjs\" must be installed to use interactive fitting",
+            call. = FALSE
+        )
+    }
+
     if (!requireNamespace("colourpicker", quietly = TRUE)) {
         stop(
             "Package \"colourpicker\" must be installed to use interactive fitting",
@@ -47,6 +54,16 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
     if(is.null(metadata)){
         stop("no metadata")
     }
+
+    model_choices <- c("x-gradient-boost-trees",
+                       "random-forest",
+                       "logistic-regression-ridge",
+                       "logistic-regression-lasso",
+                       "logistic-regression-elasticNet",
+                       "support-vector-machine-RBF")
+
+    ## set seed
+    set.seed("0990")
 
     ## Initial qc table
     qctable <- generateQCTable(data,metadata)
@@ -81,7 +98,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         shiny::navbarPage(title ="CNfits",collapsible = TRUE,position = "fixed-top",
             shiny::tabPanel(title = "fittng",value = "fitTab",
                 shiny::fluidRow(
-                shiny::h3(shiny::tags$b("Copy number fitting"))
+                    shiny::h3(shiny::tags$b("Copy number fitting"))
                 ),
                 shiny::fluidRow(
                     shiny::column(5,
@@ -170,8 +187,38 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                     )
                 )
             ),
-            shiny::tabPanel(title = "ML",value = "mlTab"
-
+            shiny::tabPanel(title = "ML",value = "mlTab",
+                shiny::fluidRow(
+                    shiny::h3(shiny::tags$b("Automate fitting (ML)"))
+                ),
+                shiny::fluidRow(
+                    shiny::fluidRow(
+                        shiny::column(5,offset = 1,
+                            shiny::h4("Model"),
+                            shiny::fluidRow(
+                                shiny::fluidRow(
+                                    shiny::selectInput("mlmodel",multiple = F,selectize = TRUE,
+                                               label = NULL,choices = c("Select model"="",model_choices)),
+                                    shiny::sliderInput(inputId = "proportion",label = "split proportion",
+                                                       min = 0.05,max = 0.95,value = 0.7),
+                                    shiny::sliderInput(inputId = "folds",label = "CV folds",
+                                                       min = 1,max = 20,value = 10)
+                                ),
+                                shiny::fluidRow(
+                                    shiny::column(3,shiny::h4("Available data"),shiny::textOutput("sampleFitted")),
+                                    shiny::column(4,shiny::h4("Current split"),shiny::textOutput("datasplit"))
+                                )
+                                ),
+                            shiny::fluidRow(
+                                shiny::column(2,offset = 6,shiny::actionButton(inputId = "runModel",class = "btnD",label = "Run"))
+                            ),
+                            shiny::fluidRow(
+                                shiny::fluidRow(shiny::h4("Model"),shiny::textOutput("modelName")),
+                                shiny::column(12,shinycssloaders::withSpinner(shiny::tableOutput("metrics"),caption = "running model"))
+                            )
+                        )
+                    )
+                )
             )
         )
     )
@@ -194,7 +241,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             qcData$data <- qctable
         })
 
-        # Inititalise sample list
+        # Initialise sample list
         shiny::observe({
             shiny::updateSelectizeInput(session,inputId = "var",server = TRUE,
                                      choices = names(data.list))
@@ -226,6 +273,118 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             }
 
         })
+
+        shiny::observe({
+            output$sampleFitted <- shiny::renderText({
+                currn <- sum(!is.na(qcData$data$use))
+                messn <- paste0("Total fitted: ",currn," of ",length(qcData$data$use))
+                return(messn)
+            })
+        })
+
+        shiny::observe({
+            output$datasplit <- shiny::renderText({
+                currn <- sum(!is.na(qcData$data$use))
+                if(currn < 3){
+                    messn <- "insufficent samples"
+                    return(messn)
+                } else {
+                    df <- qcData$data
+                    modelData <- df[!is.na(df$use),]
+                    datasplit <- splitFittingData(data = modelData,prop = input$proportion)
+                    tr <- nrow(datasplit[[2]])
+                    te <- nrow(datasplit[[3]])
+                    messn <- paste0("training: ",tr," | testing: ",te," | total: ",sum(tr,te))
+                }
+                return(messn)
+            })
+        })
+
+        fitTable <-
+        modelMetrics <- shiny::eventReactive(input$runModel,{
+
+            df <- qcData$data
+            dfFitted <- df %>%
+                dplyr::select(-notes) %>%
+                tidyr::drop_na() %>%
+                dplyr::mutate(use = factor(use))
+
+            shiny::req(input$mlmodel,nrow(dfFitted)*input$proportion > input$folds)
+
+            dfSplit <- splitFittingData(data = dfFitted,
+                                        prop = input$proportion,
+                                        strata = "use")
+
+            dsplit <- dfSplit$dataSplit
+            ## Set training and test data sets
+            trainingData <- dfSplit$trainingData
+            testingData <- dfSplit$testingDat
+
+            modelRecipe <- recipe(use ~ .,data = trainingData) %>%
+                update_role(sample,new_role = "ID") %>%
+                step_zv(all_predictors()) %>%
+                step_corr(all_predictors())
+
+            folds <- vfold_cv(trainingData, v = input$folds,strata = "use")
+
+            switch(input$mlmodel,
+                   "x-gradient-boost-trees"={
+                       fittedModel <- fitXGBtree(data = dsplit,
+                                                 model = modelRecipe,
+                                                 folds = folds,
+                                                 metric = "accuracy",
+                                                 trees = 1000)
+                   },
+                   "random-forest"={
+                        fittedModel <- fitRandomForest(data = dsplit,
+                                                       model = modelRecipe,
+                                                       folds = folds,
+                                                       metric = "accuracy",
+                                                       importance = "impurity",
+                                                       trees = 1000)
+                   },
+                   "logistic-regression-ridge"={
+                       fittedModel <- fitGLMLogisticRegression(data = dsplit,
+                                                               model = modelRecipe,
+                                                               folds = folds,
+                                                               mixture = 0,
+                                                               metric = "accuracy")
+                   },
+                   "logistic-regression-lasso"={
+                       fittedModel <- fitGLMLogisticRegression(data = dsplit,
+                                                               model = modelRecipe,
+                                                               folds = folds,
+                                                               mixture = 1,
+                                                               metric = "accuracy")
+                   },
+                   "logistic-regression-elasticNet"={
+                        fittedModel <- fitGLMLogisticRegression(data = dsplit,
+                                                                model = modelRecipe,
+                                                                folds = folds,
+                                                                mixture = 0.5,
+                                                                metric = "accuracy")
+                   },
+                   "support-vector-machine-RBF"={
+                        fittedModel <-  fitSVM(data = dsplit,
+                                               model = modelRecipe,
+                                               folds = folds,
+                                               metric = "accuracy")
+                   }
+            )
+            #tb <- sapply(dfFitted,typeof)
+            metrics <- metric_set(precision,accuracy,recall,f_meas,roc_auc)
+            tb <- fittedModel %>%
+                workflowsets::collect_predictions() %>%
+                metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
+                dplyr::mutate(model = input$mlmodel) %>%
+                tidyr::pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
+                as.data.frame()
+            #tb <- collect_metrics(fittedModel)
+            #fitTable <- rbind(fitTable,tb)
+            return(tb)
+        })
+
+        output$metrics <- renderTable(modelMetrics())
 
         # action on accepting fit
         shiny::observeEvent(input$accept_fit,{
@@ -319,7 +478,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                               value = qcData$data$purity[qcData$data$sample == input$var])
         })
 
-        ## Allow for reseting fitting values back to original values
+        ## Allow for resetting fitting values back to original values
         shiny::observeEvent(input$resetPlPu,{
             shiny::updateSliderInput(session,inputId = "pl_new",
                                      value = qcData$data$ploidy[qcData$data$sample == input$var])

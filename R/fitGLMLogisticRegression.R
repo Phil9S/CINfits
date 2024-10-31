@@ -1,10 +1,11 @@
 #' fitGLMLogisticRegression
 #'
+#' @param data model data
 #' @param model model recipe object
 #' @param folds crossfold validation object
 #' @param mixture GLM lasso-ridge regression mixture (Default: 1).
 #'  Value of 0 is ridge, 1 is lasso, float values between are elastic net.
-#' @param metric model performance metric
+#' @param metric model performance metric (Default: "accuracy")
 #'
 #' @return fitted model
 #' @export

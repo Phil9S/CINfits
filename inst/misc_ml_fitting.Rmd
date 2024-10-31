@@ -28,11 +28,6 @@ cellQC <- data.table::fread("cellLine_fit_qc_table.tsv",header = T,sep = "\t") %
 
 cellQcLong <- cellQC %>% 
                 tidyr::pivot_longer(cols = 2:6,names_to = "features")
-
-# cellSeg <- data.table::fread("cellLine_ascat_sc_fixed_purity_tCN_allSamples.tsv",header = T,sep = "\t") %>%
-#             dplyr::select(chr,startpos,endpos,segVal,sample) %>%
-#             dplyr::rename("chromosome"="chr","start"="startpos","end"="endpos") %>%
-#             CINfits::smoothProfile()
 ```
 
 ```{r datapre}
@@ -58,18 +53,17 @@ ggplot(cellQcLong,aes(value,colour=use)) +
 set.seed(0990)
 
 ## Perform data split using 70/20/10 split and stratified sampling to balance outcome class
-dataSplit <- rsample::initial_split(cellQC,prop = 0.7,strata = use)
+dataTrainTest <- splitFittingData(cellQC,prop = 0.7,strata = "use")
+dataSplit <- dataTrainTest$dataSplit
 
 ## Set training and test data sets
-trainingData <- rsample::training(dataSplit)
-#validationData <- rsample::validation(dataSplit)
-testingData <- rsample::testing(dataSplit)
+trainingData <- dataTrainTest$trainingData
+testingData <- dataTrainTest$testingData
 ```
 
 ```{r outcomeBalance}
 ## Check class balance
 table(trainingData$use,dnn = "training") / sum(table(trainingData$use))
-#table(validationData$use,dnn = "validation") / sum(table(validationData$use))
 table(testingData$use,dnn = "testing") / sum(table(testingData$use))
 ```
 
@@ -87,7 +81,7 @@ corrplot::corrplot(corr = corrMat,p.mat = testRes$p, method = 'number',type="upp
 modelRecipe <- recipe(use ~ .,data = trainingData) %>%
                 update_role(sample,new_role = "ID") %>%
                 step_zv(all_predictors()) %>%
-                step_corr(all_predictors(),)
+                step_corr(all_predictors())
     
 summary(modelRecipe)
 ```
@@ -96,62 +90,25 @@ summary(modelRecipe)
 
 ```{r CVfolds}
 ## Set number of folds for cross-validation in training set
-folds <- vfold_cv(trainingData, v = 10,strata = use)
+folds <- vfold_cv(trainingData, v = 10,strata = "use")
 ```
 
-## linear SVM
+## RBF SVM
 
-```{r linsvmModel}
-#set linear svm
-linsvm_mod <- svm_rbf(cost = tune(), rbf_sigma = tune()) %>%
-  set_mode("classification") %>%
-  set_engine("kernlab")
-```
-
-```{r linsvmworkflow}
-linsvm_WF <- workflow() %>%
-            add_model(linsvm_mod) %>%
-            add_recipe(modelRecipe)
-```
-
-```{r linsvmtune}
-#lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
-
-linsvm_res <- linsvm_WF %>% 
-            tune_grid(resamples = folds,
-                #grid = lr_reg_grid,
-                control = control_grid(save_pred = TRUE),
-                metrics = metric_set(accuracy))
-```
-
-```{r linsvmselectTuning}
-linsvm_best <- linsvm_res %>% 
-    select_best("accuracy",n = 15)
-
-linsvm_WF <- finalize_workflow(linsvm_WF,linsvm_best)
-```
-
-```{r linsvmlastfit}
-linsvm_res_final <- last_fit(linsvm_WF,dataSplit)
+```{r svmModel}
+#set RBF svm
+linsvm_res_final <- fitSVM(data = dataSplit,model = modelRecipe,folds = folds,metric = "accuracy")
 collect_metrics(linsvm_res_final)
 ```
 
-```{r linsvmpred}
+```{r svmpred}
 linsv_auc <- linsvm_res_final %>%
   collect_predictions() %>% 
   roc_curve(use, .pred_FALSE) %>% 
-  mutate(model = "SVM (linear)")
+  mutate(model = "SVM (RBF)")
 ```
 
-```{r modelPerflinsvm}
-linsvm_res_final %>%
-    collect_metrics()
-
-# linsvm_res_final %>%
-#     extract_fit_parsnip() %>% 
-#     vip(num_features = 20) +
-#     theme_bw()
-
+```{r modelPerfsvm}
 linsvm_res_final %>% 
     collect_predictions() %>% 
     roc_curve(use, .pred_FALSE) %>% 
@@ -162,36 +119,7 @@ linsvm_res_final %>%
 
 ```{r lgModel}
 ## Set logistic regression with glmnet engine/function
-lgm_glmnet <- logistic_reg(penalty = tune(),mixture = 1) %>% 
-    set_engine("glmnet")
-```
-
-```{r lgworkflow}
-## Set workflow by combining model and recipe into single model object
-lgm_glmnet_WF <- workflow() %>%
-            add_model(lgm_glmnet) %>%
-            add_recipe(modelRecipe)
-```
-
-```{r lgtune}
-lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
-
-lr_res <- lgm_glmnet_WF %>% 
-            tune_grid(resamples = folds,
-                grid = lr_reg_grid,
-                control = control_grid(save_pred = TRUE),
-                metrics = metric_set(accuracy))
-```
-
-```{r lgselectTuning}
-lr_best <- lr_res %>% 
-    select_best("accuracy",n = 15)
-
-lgm_glmnet_WF <- finalize_workflow(lgm_glmnet_WF,lr_best)
-```
-
-```{r lglastfit}
-lr_res_final <- last_fit(lgm_glmnet_WF,dataSplit)
+lr_res_final <- fitGLMLogisticRegression(data = dataSplit,model = modelRecipe,folds = folds,mixture = 0.5,metric = "accuracy")
 collect_metrics(lr_res_final)
 ```
 
@@ -203,9 +131,6 @@ lr_auc <- lr_res_final %>%
 ```
 
 ```{r modelPerflg}
-lr_res_final %>%
-    collect_metrics()
-
 lr_res_final %>%
     extract_fit_parsnip() %>% 
     vip(num_features = 20) +
@@ -221,37 +146,7 @@ lr_res_final %>%
 
 ```{r rfModel}
 ## Set logistic regression using glm engine/function
-rf_ranger <- rand_forest(mtry = tune(),min_n = tune(),trees = 1000) %>% 
-        set_engine("ranger",importance = "impurity") %>% 
-        set_mode("classification")
-```
-
-```{r rfworkflow}
-## Set workflow by combining model and recipe into single model object
-rf_ranger_WF <- workflow() %>%
-            add_model(rf_ranger) %>%
-            add_recipe(modelRecipe)
-```
-
-```{r rftune}
-rf_res <- rf_ranger_WF %>% 
-            tune_grid(folds,
-                grid = 25,
-                control = control_grid(save_pred = TRUE),
-                metrics = metric_set(roc_auc))
-```
-
-```{r selectTuned}
-rf_best <- rf_res %>% 
-            select_best(metric = "roc_auc")
-```
-
-```{r finalrf}
-final_rf <- finalize_workflow(
-  rf_ranger_WF,
-  rf_best)
-
-final_rf_res <- last_fit(final_rf, dataSplit)
+final_rf_res <- fitRandomForest(data = dataSplit,model = modelRecipe,folds = folds,metric = "accuracy",importance = "impurity",trees = 1000)
 collect_metrics(final_rf_res)
 ```
 
@@ -263,9 +158,6 @@ rf_auc <- final_rf_res %>%
 ```
 
 ```{r modelPerfRF}
-final_rf_res %>%
-    collect_metrics()
-
 final_rf_res %>%
     extract_fit_parsnip() %>% 
     vip(num_features = 20) +
@@ -280,50 +172,7 @@ final_rf_res %>%
 ### xbg
 
 ```{r setxgbt}
-bt_xgb <- boost_tree(mtry = tune(),
-                     tree_depth = tune(),
-                     learn_rate = tune(),
-                     sample_size = tune(),
-                     loss_reduction = tune(),
-                     min_n = tune(),
-                     trees = 1000) %>%
-    set_mode("classification") %>%
-    set_engine("xgboost")
-```
-
-```{r xgbWF}
-bt_WF <- workflow() %>%
-            add_model(bt_xgb) %>%
-            add_recipe(modelRecipe)
-```
-
-```{r tunexgb}
-xgb_grid <- grid_latin_hypercube(
-  tree_depth(),
-  min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), trainingData),
-  learn_rate(),
-  size = 30
-)
-
-bt_res <- bt_WF %>%
-            tune_grid(resamples = folds,
-                grid = xgb_grid,
-                control = control_grid(save_pred = TRUE))
-```
-
-```{r xgbMetrics}
-bt_auc <- select_best(bt_res, "roc_auc")
-```
-
-```{r finalxgb}
-final_xgb <- finalize_workflow(
-  bt_WF,
-  bt_auc)
-
-final_xgb_res <- last_fit(final_xgb, dataSplit)
+final_xgb_res <- fitXGBtree(data = dataSplit,model = modelRecipe,folds = folds,metric = "accuracy",trees = 1000)
 collect_metrics(final_xgb_res)
 ```
 
@@ -335,9 +184,6 @@ bt_auc <- final_xgb_res %>%
 ```
 
 ```{r modelPerfxgb}
-final_xgb_res %>%
-    collect_metrics()
-
 final_xgb_res %>%
     extract_fit_parsnip() %>% 
     vip(num_features = 20) +
@@ -362,8 +208,7 @@ lr_metrics <- lr_res_final %>%
 linsvm_metrics <- linsvm_res_final %>%
     collect_predictions() %>%
     metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
-    mutate(model = "SVM (linear)")
-
+    mutate(model = "SVM (RBF)")
 
 rf_metrics <- final_rf_res %>%
     collect_predictions() %>%
@@ -375,15 +220,14 @@ xgb_metrics <- final_xgb_res %>%
     metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
     mutate(model = "boosted tree (xgb)")
 
-bind_rows(lr_metrics,rf_metrics,xgb_metrics) %>%
+bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics) %>%
     ggplot(aes(.metric,.estimate,fill=model)) +
         geom_col(position = "dodge") +
         facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
         scale_fill_viridis_d(option = "plasma", end = .6) +
         theme_bw() + theme(legend.position = "bottom")
 
-
-bind_rows(rf_auc,lr_auc,bt_auc) %>% 
+bind_rows(rf_auc,linsv_auc,lr_auc,bt_auc) %>% 
     ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
         geom_path(lwd = 1.5, alpha = 0.8) +
         geom_abline(lty = 3) + 
@@ -391,7 +235,7 @@ bind_rows(rf_auc,lr_auc,bt_auc) %>%
         scale_color_viridis_d(option = "plasma", end = .6) +
         theme_bw()
 
-bind_rows(lr_metrics,rf_metrics,xgb_metrics) %>%
+bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics) %>%
     select(-.estimator) %>%
     pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
     arrange(desc(recall))
