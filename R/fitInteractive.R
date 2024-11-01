@@ -15,6 +15,9 @@
 #' @export
 #'
 fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15){
+    ## R CMD check notes fix
+    predict=accuracy=notes=notes=metric_set=precision
+
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
             "Package \"shiny\" must be installed to use interactive fitting",
@@ -37,7 +40,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
     if (!requireNamespace("shinycssloaders", quietly = TRUE)) {
         stop(
-            "Package \"shinyjs\" must be installed to use interactive fitting",
+            "Package \"shinycssloaders\" must be installed to use interactive fitting",
             call. = FALSE
         )
     }
@@ -370,19 +373,19 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                    }
             )
             #tb <- sapply(dfFitted,typeof)
-            metrics <- metric_set(precision,accuracy,recall,f_meas,roc_auc)
-            tb <- fittedModel %>%
-                workflowsets::collect_predictions() %>%
-                metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
-                dplyr::mutate(model = input$mlmodel) %>%
-                tidyr::pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
-                as.data.frame()
-            #tb <- collect_metrics(fittedModel)
+            metrics <- yardstick::metric_set(precision,accuracy,recall,f_meas,roc_auc)
+            # tb <- fittedModel %>%
+            #     workflowsets::collect_predictions() %>%
+            #     metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
+            #     dplyr::mutate(model = input$mlmodel) %>%
+            #     tidyr::pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
+            #     as.data.frame()
+            tb <- collect_metrics(fittedModel)
             #fitTable <- rbind(fitTable,tb)
             return(tb)
         })
 
-        output$metrics <- renderTable(modelMetrics())
+        output$metrics <- shiny::renderTable(modelMetrics())
 
         # action on accepting fit
         shiny::observeEvent(input$accept_fit,{

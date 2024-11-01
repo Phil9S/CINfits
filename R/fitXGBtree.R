@@ -25,7 +25,7 @@ fitXGBtree <- function(data = NULL,model = NULL,folds = NULL,
     ## Set workflow by combining model and recipe into single model object
     bt_WF <- workflows::workflow() %>%
         workflows::add_model(bt_xgb) %>%
-        workflows::add_recipe(modelRecipe)
+        workflows::add_recipe(model)
 
     xgb_grid <- dials::grid_latin_hypercube(
         dials::tree_depth(),
@@ -46,7 +46,7 @@ fitXGBtree <- function(data = NULL,model = NULL,folds = NULL,
     bt_best <- bt_res %>%
         tune::select_best(metric = metric,n = 10)
 
-    final_xgb <- finalize_workflow(bt_WF,bt_best)
-    final_xgb_res <- last_fit(final_xgb, data)
+    final_xgb <- tune::finalize_workflow(bt_WF,bt_best)
+    final_xgb_res <- tune::last_fit(final_xgb, data)
     return(final_xgb_res)
 }

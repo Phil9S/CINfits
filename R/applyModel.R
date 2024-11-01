@@ -1,7 +1,7 @@
 #' applyModel
 #'
-#' @param model
-#' @param newData
+#' @param model fitted tidymodel workflow object
+#' @param newData new data matching fitted data format
 #'
 #' @return prediction of new data using given model
 #' @export

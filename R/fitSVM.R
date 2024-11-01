@@ -9,7 +9,7 @@
 #' @export
 fitSVM <- function(data = NULL,model = NULL,folds = NULL,metric = "accuracy"){
     #set RBF svm
-    linsvm_mod <- parsnip::svm_rbf(cost = tune::tune(), rbf_sigma = tune()) %>%
+    linsvm_mod <- parsnip::svm_rbf(cost = tune::tune(), rbf_sigma = tune::tune()) %>%
         parsnip::set_mode("classification") %>%
         parsnip::set_engine("kernlab")
 

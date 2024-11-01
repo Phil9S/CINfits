@@ -24,12 +24,22 @@ Imports:
     tibble,
     tidyr,
     dplyr,
-    data.table
+    data.table,
+    tidymodels,
+    dials,
+    parsnip,
+    recipes,
+    rsample,
+    tune,
+    workflows,
+    yardstick,
+    workflowsets
 Suggests:
     shiny,
     DT,
     shinyjs,
-    colourpicker
+    colourpicker,
+    shinycssloaders
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

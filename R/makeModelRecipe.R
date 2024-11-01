@@ -1,6 +1,8 @@
 #' makeModelRecipe
 #'
 #' @param data training data
+#' @param folds number of folds to use in cross validation
+#' @param strata variable on which to stratify training/test data for class balance
 #'
 #' @return recipe object for tidymodels
 #' @export
