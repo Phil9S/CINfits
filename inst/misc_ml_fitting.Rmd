@@ -21,13 +21,16 @@ cores <- round(cores*0.8)
 
 ```{r data}
 ## Load and pre-process data
-cellQC <- data.table::fread("cellLine_fit_qc_table.tsv",header = T,sep = "\t") %>%
-            dplyr::select(-notes) %>%
+cellQC <- #data.table::fread("cellLine_fit_qc_table.tsv",header = T,sep = "\t") %>%
+            #dplyr::select(-notes) %>%
+            fitstats_ord %>%
             tidyr::drop_na() %>%
+            dplyr::select(-grid_ploidy) %>%
+            dplyr::rename(purity = grid_purity) %>%
             dplyr::mutate(use = factor(use))
 
 cellQcLong <- cellQC %>% 
-                tidyr::pivot_longer(cols = 2:6,names_to = "features")
+                tidyr::pivot_longer(cols = -c(1,ncol(.)),names_to = "features")
 ```
 
 ```{r datapre}
@@ -37,12 +40,7 @@ head(cellQC)
 ```
 
 ```{r plots}
-ggplot(cellQcLong,aes(use,value,colour=use)) +
-    geom_boxplot() +
-    facet_wrap(. ~ features,scales = "free") +
-    theme_bw()
-
-ggplot(cellQcLong,aes(value,colour=use)) +
+ggplot(cellQcLong,aes(log(value),colour=use)) +
     geom_density() +
     facet_wrap(. ~ features,scales = "free") +
     theme_bw()
@@ -70,8 +68,8 @@ table(testingData$use,dnn = "testing") / sum(table(testingData$use))
 ## correlated predictors
 
 ```{r corr}
-corrMat <- cor(as.matrix(cellQC[,c(2:6)]),method = "spearman")
-testRes = corrplot::cor.mtest(as.matrix(cellQC[,c(2:6)]),method = "spearman", conf.level = 0.95)
+corrMat <- cor(as.matrix(cellQC[,c(2:7)]),method = "spearman")
+testRes = corrplot::cor.mtest(as.matrix(cellQC[,c(2:7)]),method = "spearman", conf.level = 0.95)
 corrplot::corrplot(corr = corrMat,p.mat = testRes$p, method = 'number',type="upper")
 ```
 
@@ -108,18 +106,15 @@ linsv_auc <- linsvm_res_final %>%
   mutate(model = "SVM (RBF)")
 ```
 
-```{r modelPerfsvm}
-linsvm_res_final %>% 
-    collect_predictions() %>% 
-    roc_curve(use, .pred_FALSE) %>% 
-    autoplot()
-```
-
 ## logistic regression
 
 ```{r lgModel}
 ## Set logistic regression with glmnet engine/function
-lr_res_final <- fitGLMLogisticRegression(data = dataSplit,model = modelRecipe,folds = folds,mixture = 0.5,metric = "accuracy")
+lr_res_final <- fitGLMLogisticRegression(data = dataSplit,
+                                         model = modelRecipe,
+                                         folds = folds,
+                                         mixture = 0.5,
+                                         metric = "accuracy")
 collect_metrics(lr_res_final)
 ```
 
@@ -130,23 +125,16 @@ lr_auc <- lr_res_final %>%
   mutate(model = "Logistic Regression")
 ```
 
-```{r modelPerflg}
-lr_res_final %>%
-    extract_fit_parsnip() %>% 
-    vip(num_features = 20) +
-    theme_bw()
-
-lr_res_final %>% 
-    collect_predictions() %>% 
-    roc_curve(use, .pred_FALSE) %>% 
-    autoplot()
-```
-
 ## Random forest
 
 ```{r rfModel}
-## Set logistic regression using glm engine/function
-final_rf_res <- fitRandomForest(data = dataSplit,model = modelRecipe,folds = folds,metric = "accuracy",importance = "impurity",trees = 1000)
+## Set randomforest
+final_rf_res <- fitRandomForest(data = dataSplit,
+                                model = modelRecipe,
+                                folds = folds,
+                                metric = "accuracy",
+                                importance = "impurity",
+                                trees = 1000)
 collect_metrics(final_rf_res)
 ```
 
@@ -172,7 +160,10 @@ final_rf_res %>%
 ### xbg
 
 ```{r setxgbt}
-final_xgb_res <- fitXGBtree(data = dataSplit,model = modelRecipe,folds = folds,metric = "accuracy",trees = 1000)
+final_xgb_res <- fitXGBtree(data = dataSplit,
+                            model = modelRecipe,
+                            folds = folds,
+                            metric = "accuracy",trees = 1000)
 collect_metrics(final_xgb_res)
 ```
 
@@ -220,11 +211,14 @@ xgb_metrics <- final_xgb_res %>%
     metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
     mutate(model = "boosted tree (xgb)")
 
-bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics) %>%
+```
+
+```{r segVar_variance_results}
+segVarResultsMedian <- bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics)
+segVarResultsMedian %>%
     ggplot(aes(.metric,.estimate,fill=model)) +
         geom_col(position = "dodge") +
         facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
-        scale_fill_viridis_d(option = "plasma", end = .6) +
         theme_bw() + theme(legend.position = "bottom")
 
 bind_rows(rf_auc,linsv_auc,lr_auc,bt_auc) %>% 
@@ -232,7 +226,27 @@ bind_rows(rf_auc,linsv_auc,lr_auc,bt_auc) %>%
         geom_path(lwd = 1.5, alpha = 0.8) +
         geom_abline(lty = 3) + 
         coord_equal() + 
-        scale_color_viridis_d(option = "plasma", end = .6) +
+        theme_bw()
+
+bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics) %>%
+    select(-.estimator) %>%
+    pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
+    arrange(desc(recall))
+```
+
+```{r segVar_variance_results}
+segVarResultsVAR <- bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics)
+segVarResultsVAR %>%
+    ggplot(aes(.metric,.estimate,fill=model)) +
+        geom_col(position = "dodge") +
+        facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
+        theme_bw() + theme(legend.position = "bottom")
+
+bind_rows(rf_auc,linsv_auc,lr_auc,bt_auc) %>% 
+    ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+        geom_path(lwd = 1.5, alpha = 0.8) +
+        geom_abline(lty = 3) + 
+        coord_equal() + 
         theme_bw()
 
 bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics) %>%
