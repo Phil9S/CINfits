@@ -11,6 +11,10 @@
 #'
 fitXGBtree <- function(data = NULL,model = NULL,folds = NULL,
                             metric = "accuracy",trees = 1000){
+
+    rlang::arg_match(metric,c("precision","accuracy","recall",
+                              "f_meas","roc_auc","pr_auc"),multiple = F)
+
     ## Set xbg trees using xgboost engine/function
     bt_xgb <- parsnip::boost_tree(mtry = tune::tune(),
                          tree_depth = tune::tune(),
@@ -41,7 +45,7 @@ fitXGBtree <- function(data = NULL,model = NULL,folds = NULL,
         tune::tune_grid(resamples = folds,
                   grid = xgb_grid,
                   control = tune::control_grid(save_pred = TRUE),
-                  metrics = yardstick::metric_set(accuracy))
+                  metrics = yardstick::metric_set(precision,accuracy,recall,f_meas,roc_auc,pr_auc))
 
     bt_best <- bt_res %>%
         tune::select_best(metric = metric,n = 10)

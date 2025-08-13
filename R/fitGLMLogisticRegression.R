@@ -10,6 +10,9 @@
 #' @return fitted model
 #' @export
 fitGLMLogisticRegression <- function(data = NULL,model = NULL,folds = NULL,mixture = 1,metric = "accuracy"){
+
+    rlang::arg_match(metric,c("precision","accuracy","recall",
+                              "f_meas","roc_auc","pr_auc"),multiple = F)
     ## Set logistic regression with glmnet engine/function
     lgm_glmnet <- parsnip::logistic_reg(penalty = tune::tune(),mixture = mixture) %>%
         parsnip::set_engine("glmnet")
@@ -25,7 +28,7 @@ fitGLMLogisticRegression <- function(data = NULL,model = NULL,folds = NULL,mixtu
         tune::tune_grid(resamples = folds,
                   grid = lr_reg_grid,
                   control = tune::control_grid(save_pred = TRUE),
-                  metrics = yardstick::metric_set(accuracy))
+                  metrics = yardstick::metric_set(precision,accuracy,recall,f_meas,roc_auc,pr_auc))
 
     lr_best <- lr_res %>%
         tune::select_best(metric = metric,n = 10)

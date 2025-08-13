@@ -8,6 +8,10 @@
 #' @return fitted model
 #' @export
 fitSVM <- function(data = NULL,model = NULL,folds = NULL,metric = "accuracy"){
+
+    rlang::arg_match(metric,c("precision","accuracy","recall",
+                              "f_meas","roc_auc","pr_auc"),multiple = F)
+
     #set RBF svm
     linsvm_mod <- parsnip::svm_rbf(cost = tune::tune(), rbf_sigma = tune::tune()) %>%
         parsnip::set_mode("classification") %>%
@@ -23,7 +27,7 @@ fitSVM <- function(data = NULL,model = NULL,folds = NULL,metric = "accuracy"){
         tune::tune_grid(resamples = folds,
                         #grid = lr_reg_grid,
                         control = tune::control_grid(save_pred = TRUE),
-                        metrics = yardstick::metric_set(accuracy))
+                        metrics = yardstick::metric_set(precision,accuracy,recall,f_meas,roc_auc,pr_auc))
 
     linsvm_best <- linsvm_res %>%
         tune::select_best(metric,n = 10)

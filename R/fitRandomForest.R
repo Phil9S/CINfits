@@ -13,6 +13,10 @@
 fitRandomForest <- function(data = NULL,model = NULL,folds = NULL,
                             metric = "accuracy",importance = "impurity",
                             trees = 1000){
+
+    rlang::arg_match(metric,c("precision","accuracy","recall",
+                              "f_meas","roc_auc","pr_auc"),multiple = F)
+
     ## Set randomforest using ranger engine/function
     rf_ranger <- parsnip::rand_forest(mtry = tune::tune(),min_n = tune::tune(),trees = trees) %>%
         parsnip::set_engine("ranger",importance = importance) %>%
@@ -23,11 +27,13 @@ fitRandomForest <- function(data = NULL,model = NULL,folds = NULL,
         workflows::add_model(rf_ranger) %>%
         workflows::add_recipe(model)
 
+
+
     rf_res <- rf_ranger_WF %>%
         tune::tune_grid(folds,
                   grid = 25,
                   control = tune::control_grid(save_pred = TRUE),
-                  metrics = yardstick::metric_set(accuracy))
+                  metrics = yardstick::metric_set(precision,accuracy,recall,f_meas,roc_auc,pr_auc))
 
     rf_best <- rf_res %>%
         tune::select_best(metric = metric,n = 10)
