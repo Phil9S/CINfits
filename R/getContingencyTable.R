@@ -7,6 +7,7 @@
 #' @export
 #'
 getContingencyTable <- function(model = NULL,var = "use"){
+    `.pred_class`=n=NULL
     if(!inherits(model,c("last_fit"))){
         stop("model required to be last fit")
     }

@@ -33,7 +33,12 @@ fitRandomForest <- function(data = NULL,model = NULL,folds = NULL,
         tune::tune_grid(folds,
                   grid = 25,
                   control = tune::control_grid(save_pred = TRUE),
-                  metrics = yardstick::metric_set(precision,accuracy,recall,f_meas,roc_auc,pr_auc))
+                  metrics = yardstick::metric_set(yardstick::precision,
+                                                  yardstick::accuracy,
+                                                  yardstick::recall,
+                                                  yardstick::f_meas,
+                                                  yardstick::roc_auc,
+                                                  yardstick::pr_auc))
 
     rf_best <- rf_res %>%
         tune::select_best(metric = metric,n = 10)

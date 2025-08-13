@@ -1,4 +1,5 @@
 collateModelRoc <- function(models,usePR=FALSE){
+    use=`.pred_FALSE`=NULL
     if(is.null(models)){
         stop("no models provided")
     }
@@ -9,18 +10,18 @@ collateModelRoc <- function(models,usePR=FALSE){
 
     model_roc <- do.call(rbind,lapply(models,FUN = function(model){
 
-        modelClass <- class(extract_spec_parsnip(model))[1]
+        modelClass <- class(workflowsets::extract_spec_parsnip(model))[1]
 
         if(usePR){
             roccurve <- model %>%
-                collect_predictions()  %>%
-                pr_curve(use, .pred_FALSE) %>%
-                mutate(model = modelClass)
+                tune::collect_predictions()  %>%
+                yardstick::pr_curve(use, .pred_FALSE) %>%
+                dplyr::mutate(model = modelClass)
         } else {
             roccurve <- model %>%
-                collect_predictions()  %>%
-                roc_curve(use, .pred_FALSE) %>%
-                mutate(model = modelClass)
+                tune::collect_predictions()  %>%
+                yardstick::roc_curve(use, .pred_FALSE) %>%
+                dplyr::mutate(model = modelClass)
         }
 
     }))

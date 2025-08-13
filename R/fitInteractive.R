@@ -16,7 +16,8 @@
 #'
 fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15){
     ## R CMD check notes fix
-    predict=accuracy=notes=notes=metric_set=precision
+    predict=specificity=sensitivity=`.estimator`=accuracy=notes=NULL
+    notes=model=metric_set=precision=use=savedModelMetrics=NULL
 
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
@@ -437,7 +438,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             )
 
             metrics <- data.frame(metric=metric,split=input$proportion,folds=input$folds)
-            if(!exists("savedModelMetrics")){
+            if(is.null(savedModelMetrics)){
                 #print("new")
                 savedModelMetrics <<- list(list(model=fittedModel,model_name=model_name,metric=metrics))
             } else {
@@ -457,7 +458,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                                      selected = NULL)
         })
 
-        metricsTable <- reactive({
+        metricsTable <- shiny::reactive({
             modelData <- modelMetrics()
             #print(length(modelData))
 
@@ -496,7 +497,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                                    id_cols = c("model","model_type","metric","folds","split"),
                                    values_from = ".estimate") %>%
                 dplyr::relocate(model,.before = 1) %>%
-                mutate(across(where(is.numeric),~round(.x,digits = 2)))
+                dplyr::mutate(dplyr::across(dplyr::where(is.numeric),~round(.x,digits = 2)))
 
             return(tb)
         })
@@ -538,27 +539,27 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             modelROC$model_type <- model_name$model_type
 
             modelROC$model <- factor(modelROC$model,
-                                     levels = str_sort(unique(modelROC$model),
+                                     levels = stringr::str_sort(unique(modelROC$model),
                                                        numeric = T))
             return(modelROC)
         })
 
         output$roc_plot <- shiny::renderPlot({
 
-            rocplot <- ggplot(rocMetrics(),
-                              aes(x = 1 - specificity,
+            rocplot <- ggplot2::ggplot(rocMetrics(),
+                              ggplot2::aes(x = 1 - specificity,
                                   y = sensitivity,
                                   col = model)) +
-                geom_path(lwd = 1.5, alpha = 0.8) +
-                geom_abline(lty = 3) +
-                coord_equal() +
-                theme_bw()
+                ggplot2::geom_path(lwd = 1.5, alpha = 0.8) +
+                ggplot2::geom_abline(lty = 3) +
+                ggplot2::coord_equal() +
+                ggplot2::theme_bw()
 
             return(rocplot)
 
         })
 
-        predictOut <- eventReactive(input$applyModel,{
+        predictOut <- shiny::eventReactive(input$applyModel,{
             qcTablePred <- qcData$data
             #qcTablePred <- qcTablePred[is.na(qcTablePred$use),]
 
@@ -568,7 +569,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             selectedModel <- selectedModelList[["model"]]
             #print(selectedModel)
 
-            predModel <- extract_workflow(selectedModel)
+            predModel <- workflowsets::extract_workflow(selectedModel)
             #print(predModel)
             #print(qcTablePred)
             newClass <- stats::predict(predModel,qcTablePred,type = "class")
@@ -867,7 +868,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                 selectedModelList <- modelMetrics()[[modelIndex]]
                 selectedModel <- selectedModelList[["model"]]
                 #print(selectedModel)
-                predModel <- extract_workflow(selectedModel)
+                predModel <- workflowsets::extract_workflow(selectedModel)
                 selectedModelList$extracted_model <- predModel
 
                 saveRDS(selectedModelList,file)
@@ -887,7 +888,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             content = function(file) {
                 predTable <- predictOut()
 
-                predTable <- left_join(qcData$data,predTable,by = c("sample","use"))
+                predTable <- dplyr::left_join(qcData$data,predTable,by = c("sample","use"))
 
                 utils::write.table(predTable,file,quote = F,sep = "\t",append = F,
                                    row.names = F,col.names = T)
