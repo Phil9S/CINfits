@@ -65,6 +65,9 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                        "logistic-regression-elasticNet",
                        "support-vector-machine-RBF")
 
+    metric_choices <- c("precision","accuracy","recall",
+                        "f_meas","roc_auc","pr_auc")
+
     ## set seed
     set.seed("0990")
 
@@ -86,20 +89,9 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
 
     ui <- shiny::fluidPage(
         shinyjs::useShinyjs(),
-        ## add key binding for accept and reject fits using "y" and "n"
-        ## CAUSES ISSUES WHEN ENTERING NOTES
-        shiny::tags$script(shiny::HTML("$(function(){
-      $(document).keyup(function(e) {
-      if (e.which == 89) {
-        $('#accept_fit').click()
-      }
-      if (e.which == 78) {
-        $('#reject_fit').click()
-      }
-      });})")),
         shiny::tags$head(shiny::tags$style(".btnD { vertical-align: middle; width: 100%; margin: 10px;}")),
         shiny::navbarPage(title ="CNfits",collapsible = TRUE,position = "fixed-top",
-            shiny::tabPanel(title = "fittng",value = "fitTab",
+            shiny::tabPanel(title = "Fittng",value = "fitTab",
                 shiny::fluidRow(
                     shiny::h3(shiny::tags$b("Copy number fitting"))
                 ),
@@ -123,41 +115,38 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                                     shiny::h4("Smoothing parameters"),
                                     shiny::sliderInput("smoothFactor",label = "smoothing factor",min = 0,max = 0.5,step = 0.01,value = 0.12)),
                                 shiny::h4("Upload QC"),
-                                shiny::fileInput("uploadQC",label = NULL,multiple = F,accept = c(".tsv",".csv"),buttonLabel = "upload",placeholder = "upload qc file...")
+                                shiny::fileInput("uploadQC",label = NULL,multiple = F,
+                                                 accept = c(".tsv",".csv"),
+                                                 buttonLabel = "upload",
+                                                 placeholder = "upload qc file...")
                             ),
-                            shiny::column(6,
+                            shiny::column(5,offset = 1,
                                 shiny::fluidRow(
                                     shiny::h4("Fit parameters"),
                                     shiny::column(6,shiny::sliderInput("pl_new","ploidy",min = 1,max = 8,step = 0.01,value = 2)),
                                     shiny::column(6,shiny::sliderInput("pu_new","purity",min = 0.2,max = 1,step = 0.01,value = 0.7))
                                 ),
                                 shiny::fluidRow(
-                                    shiny::h4("Segment colours"),
-                                    shiny::conditionalPanel(condition = "input.as == true",
-                                        shiny::column(6,colourpicker::colourInput(inputId = "nA",label = "allele A",value = "blue",allowTransparent = F,showColour = "background",closeOnClick = TRUE)),
-                                        shiny::column(6,colourpicker::colourInput(inputId = "nB",label = "allele B",value = "darkred",allowTransparent = F,showColour = "background",closeOnClick = TRUE))),
-                                    shiny::conditionalPanel(condition = "input.as == false",
-                                                            shiny::column(12,colourpicker::colourInput(inputId = "totcol",label = "total copy number",value = "blue",allowTransparent = F,showColour = "background",closeOnClick = TRUE)))
-                                    ),
-                                shiny::fluidRow(
                                     shiny::actionButton(inputId = "resetPlPu",label = "reset fit parameters",width = '100%',height = '100px')
                                 ),
+                                shiny::fluidRow(
+                                shiny::h4("Fit selection"),
+                                    shiny::fluidRow(
+                                        shiny::column(12,
+                                                      shiny::column(4,shiny::actionButton("accept_fit",label = "accept",width = '100%')),
+                                                      shiny::column(4,shiny::actionButton("reject_fit",label = "reject",width = '100%')),
+                                                      shiny::column(4,shiny::actionButton("refit_fit",label = "refit",width = '100%'))
+                                        )
+                                    ),
+                                shiny::br(),
+                                    shiny::column(12,
+                                                  shiny::textAreaInput("notes_fit",label = NULL,placeholder = "Add fit notes here...",width = '100%')
+                                    )
+                                )
                             )
                         ),
                         shiny::fluidRow(
-                            shiny::column(12,
-                                shiny::h4("Fit selection"),
-                                shiny::fluidRow(
-                                    shiny::column(6,
-                                                  shiny::column(4,shiny::actionButton("accept_fit",label = "accept (y)",width = '100%')),
-                                                  shiny::column(4,shiny::actionButton("reject_fit",label = "reject (n)",width = '100%')),
-                                                  shiny::column(4,shiny::actionButton("refit_fit",label = "refit",width = '100%'))
-                                    ),
-                                    shiny::column(6,
-                                                  shiny::textAreaInput("notes_fit",label = NULL,placeholder = "Add fit notes here...",width = '100%')
-                                    )
-                                ),
-                            )
+
                         ),
                         shiny::fluidRow(
                             shiny::column(12,
@@ -172,20 +161,16 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                             )
                         )
                     ),
-                    shiny::column(7,
+                    shiny::column(6,offset = 1,
                         shiny::fluidRow(
                             shiny::h3("Original profile"),
-                            shiny::fluidRow(
-                                shiny::column(10,shiny::plotOutput("original_fit")),
-                                shiny::column(1,shiny::tableOutput("fit_stat"))
-                            )
+                                shiny::column(9,shiny::plotOutput("original_fit")),
+                                shiny::column(2,shiny::tableOutput("fit_stat"))
                         ),
                         shiny::fluidRow(
                             shiny::h3("refit profile"),
-                            shiny::fluidRow(
-                                shiny::column(10,shiny::plotOutput("new_fit")),
-                                shiny::column(1,shiny::tableOutput("new_stat"))
-                            )
+                                shiny::column(9,shiny::plotOutput("new_fit")),
+                                shiny::column(2,shiny::tableOutput("new_stat"))
                         )
                     )
                 )
@@ -196,30 +181,95 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                 ),
                 shiny::fluidRow(
                     shiny::fluidRow(
-                        shiny::column(5,offset = 1,
-                            shiny::h4("Model"),
-                            shiny::fluidRow(
+                        shiny::column(7,
+                            shiny::h4("Model selection"),
+                            shiny::column(11,offset = 1,
                                 shiny::fluidRow(
-                                    shiny::selectInput("mlmodel",multiple = F,selectize = TRUE,
-                                               label = NULL,choices = c("Select model"="",model_choices)),
-                                    shiny::sliderInput(inputId = "proportion",label = "split proportion",
-                                                       min = 0.05,max = 0.95,value = 0.7),
-                                    shiny::sliderInput(inputId = "folds",label = "CV folds",
-                                                       min = 1,max = 20,value = 10)
+                                    shiny::fluidRow(
+                                        shiny::fluidRow(
+                                            shiny::column(4,
+                                                shiny::selectInput("mlmodel",multiple = F,selectize = TRUE,
+                                                   label = "model",choices = c("Select model"="",model_choices))),
+                                            shiny::column(2,
+                                                shiny::selectInput("mlmetrics",multiple = F,selected = "accuracy",selectize = TRUE,
+                                                           label = "metric",choices = c("Select metric"="",metric_choices)),
+                                                shiny::actionButton(inputId = "runModel",class = "btnD",label = "Run", style = 'margin:0px')
+                                            )
+                                        ),
+                                        shiny::sliderInput(inputId = "proportion",label = "split proportion",
+                                                           min = 0.05,max = 0.95,value = 0.7),
+                                        shiny::sliderInput(inputId = "folds",label = "CV folds",
+                                                           min = 2,max = 10,value = 5)
+                                    ),
+                                    shiny::fluidRow(
+                                        shiny::column(3,shiny::h4("Available data"),shiny::textOutput("sampleFitted")),
+                                        shiny::column(4,shiny::h4("Current split"),shiny::textOutput("datasplit"))
+                                    )
                                 ),
                                 shiny::fluidRow(
-                                    shiny::column(3,shiny::h4("Available data"),shiny::textOutput("sampleFitted")),
-                                    shiny::column(4,shiny::h4("Current split"),shiny::textOutput("datasplit"))
+                                    shiny::fluidRow(shiny::h4("Model statistics"),shiny::textOutput("modelName")),
+                                    shiny::column(12,shinycssloaders::withSpinner(DT::DTOutput("metrics"),caption = "running model"))
                                 )
-                                ),
+                            )
+                        ),
+                        shiny::column(5,
+                            shiny::h4("Model performance"),
                             shiny::fluidRow(
-                                shiny::column(2,offset = 6,shiny::actionButton(inputId = "runModel",class = "btnD",label = "Run"))
+                                shinycssloaders::withSpinner(shiny::plotOutput("roc_plot"),caption = "running model")
                             ),
                             shiny::fluidRow(
-                                shiny::fluidRow(shiny::h4("Model"),shiny::textOutput("modelName")),
-                                shiny::column(12,shinycssloaders::withSpinner(shiny::tableOutput("metrics"),caption = "running model"))
+                                #shiny::h4("Model prediction"),
+                                shiny::column(3,
+                                    shiny::selectInput(inputId = "modelSelected",
+                                                       label = "model",
+                                                       choices = c("Select model"=""),
+                                                       multiple = F),
+                                    shiny::actionButton(inputId = "applyModel",label = "apply model")#,style = 'margin-top:25px')
+                                ),
+                                shiny::column(8,
+                                    shiny::fluidRow(
+                                        DT::DTOutput(outputId = "predictTable")
+                                    )
+                                )
+                            ),
+                            shiny::fluidRow(
+                                shiny::column(2,offset = 7,
+                                    shiny::downloadButton(outputId = "saveModel",label = "save model")
+                                ),
+                                shiny::column(2,
+                                    shiny::downloadButton(outputId = "savePredict",label = "save table")
+                                )
                             )
                         )
+                    )
+                )
+            ),
+            shiny::tabPanel(title = "options",value = "optsTab",
+                shiny::fluidRow(
+                    shiny::h3(shiny::tags$b("Options"))
+                ),
+                shiny::fluidRow(
+                    shiny::h4("Segment colours"),
+                    shiny::conditionalPanel(condition = "input.as == true",
+                        shiny::column(6,colourpicker::colourInput(inputId = "nA",
+                                                                  label = "allele A",
+                                                                  value = "blue",allowTransparent = F,
+                                                                  showColour = "background",
+                                                                  closeOnClick = TRUE)),
+                        shiny::column(6,colourpicker::colourInput(inputId = "nB",
+                                                                  label = "allele B",
+                                                                  value = "darkred",
+                                                                  allowTransparent = F,
+                                                                  showColour = "background",
+                                                                  closeOnClick = TRUE))
+                    ),
+                    shiny::conditionalPanel(condition = "input.as == false",
+                        shiny::column(12,colourpicker::colourInput(inputId = "totcol",
+                                                                   label = "total copy number",
+                                                                   value = "blue",
+                                                                   allowTransparent = F,
+                                                                   showColour = "background",
+                                                                   closeOnClick = TRUE))
                     )
                 )
             )
@@ -232,6 +282,16 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
         shiny::observe(if(AS == FALSE){
             shinyjs::disable(id = "as")
         })
+
+
+        shiny::observe(if(input$modelSelected == ""){
+            shinyjs::disable(id = "saveModel")
+            shinyjs::disable(id = "savePredict")
+        } else {
+            shinyjs::enable(id = "saveModel")
+            shinyjs::enable(id = "savePredict")
+        })
+
 
         # switch between allele-specific and total CN data
         shiny::observe(if(AS == TRUE){
@@ -261,7 +321,9 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             if(!all(colnames(qcUploadTab) %in% c("sample","segments","clonality",
                                                 "ploidy","purity","homozygousLoss",
                                                 "use","notes"))){
-                output$message <- shiny::renderText("incompatible QC file")
+                #output$message <- shiny::renderText("incompatible QC file")
+                shiny::showNotification("incompatible QC file",
+                                        duration = 5,type = "error",closeButton = T)
             } else {
                 qcData$data <- qcUploadTab
 
@@ -303,7 +365,6 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             })
         })
 
-        fitTable <-
         modelMetrics <- shiny::eventReactive(input$runModel,{
 
             df <- qcData$data
@@ -327,20 +388,22 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             modelRecipe <- ModelRecipe_CV$recipe
 
             folds <- ModelRecipe_CV$cv
+            metric <- input$mlmetrics
+            model_name <- input$mlmodel
 
             switch(input$mlmodel,
                    "x-gradient-boost-trees"={
                        fittedModel <- fitXGBtree(data = dsplit,
                                                  model = modelRecipe,
                                                  folds = folds,
-                                                 metric = "accuracy",
+                                                 metric = metric,
                                                  trees = 1000)
                    },
                    "random-forest"={
                         fittedModel <- fitRandomForest(data = dsplit,
                                                        model = modelRecipe,
                                                        folds = folds,
-                                                       metric = "accuracy",
+                                                       metric = metric,
                                                        importance = "impurity",
                                                        trees = 1000)
                    },
@@ -349,43 +412,186 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                                                                model = modelRecipe,
                                                                folds = folds,
                                                                mixture = 0,
-                                                               metric = "accuracy")
+                                                               metric = metric)
                    },
                    "logistic-regression-lasso"={
                        fittedModel <- fitGLMLogisticRegression(data = dsplit,
                                                                model = modelRecipe,
                                                                folds = folds,
                                                                mixture = 1,
-                                                               metric = "accuracy")
+                                                               metric = metric)
                    },
                    "logistic-regression-elasticNet"={
                         fittedModel <- fitGLMLogisticRegression(data = dsplit,
                                                                 model = modelRecipe,
                                                                 folds = folds,
                                                                 mixture = 0.5,
-                                                                metric = "accuracy")
+                                                                metric = metric)
                    },
                    "support-vector-machine-RBF"={
                         fittedModel <-  fitSVM(data = dsplit,
                                                model = modelRecipe,
                                                folds = folds,
-                                               metric = "accuracy")
+                                               metric = metric)
                    }
             )
-            #tb <- sapply(dfFitted,typeof)
-            metrics <- yardstick::metric_set(precision,accuracy,recall,f_meas,roc_auc)
-            # tb <- fittedModel %>%
-            #     workflowsets::collect_predictions() %>%
-            #     metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
-            #     dplyr::mutate(model = input$mlmodel) %>%
-            #     tidyr::pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
-            #     as.data.frame()
-            tb <- collect_metrics(fittedModel)
-            #fitTable <- rbind(fitTable,tb)
+
+            metrics <- data.frame(metric=metric,split=input$proportion,folds=input$folds)
+            if(!exists("savedModelMetrics")){
+                #print("new")
+                savedModelMetrics <<- list(list(model=fittedModel,model_name=model_name,metric=metrics))
+            } else {
+                #print("append")
+                newModel <- list(model=fittedModel,model_name=model_name,metric=metrics)
+                savedModelMetrics <<- append(savedModelMetrics,list(newModel))
+            }
+
+            return(savedModelMetrics)
+        })
+
+        shiny::observe({
+            shiny::req(input$runModel)
+            models <- metricsTable()
+            shiny::updateSelectInput(inputId = "modelSelected",
+                                     choices = models$model,
+                                     selected = NULL)
+        })
+
+        metricsTable <- reactive({
+            modelData <- modelMetrics()
+            #print(length(modelData))
+
+            fittedModels <- lapply(modelData,FUN = function(x){
+                x[["model"]]
+            })
+
+            model_name <- do.call(rbind,lapply(1:length(modelData),FUN = function(x){
+                y <- modelData[[x]]
+                y <- y[["model_name"]]
+                #print(y)
+                z <- data.frame(model=rep(paste0("model_",x),length(metric_choices)),
+                                model_type=rep(y,length(metric_choices)))
+                #print(z)
+                return(z)
+            }))
+
+            # model_name <- modelMetrics()[["model_name"]]
+            metric_name <- do.call(rbind,lapply(modelData,FUN = function(x){
+                y <- x[["metric"]]
+                y <- y[rep(1,length(metric_choices)),]
+                return(y)
+            }))
+
+            #print(model_name)
+            #print(metric_name)
+            tb <- collateModelMetrics(fittedModels)
+            tb$model <- model_name$model
+            tb$model_type <- model_name$model_type
+            tb <- cbind(tb,metric_name)
+            #print(tb)
+
+            tb <- tb %>%
+                dplyr::select(-.estimator) %>%
+                tidyr::pivot_wider(names_from = ".metric",
+                                   id_cols = c("model","model_type","metric","folds","split"),
+                                   values_from = ".estimate") %>%
+                dplyr::relocate(model,.before = 1) %>%
+                mutate(across(where(is.numeric),~round(.x,digits = 2)))
+
             return(tb)
         })
 
-        output$metrics <- shiny::renderTable(modelMetrics())
+        output$metrics <- DT::renderDT({
+
+            DT::datatable(metricsTable(),rownames = FALSE,extensions = 'Scroller',
+                          options = list(
+                              class = "display",
+                              pageLength = 5,
+                              ordering=T,
+                              searching=F,
+                              scrollY = 300,
+                              scroller = TRUE,
+                              searchHighlight = T))
+        })
+
+        rocMetrics <- shiny::reactive({
+            modelData <- modelMetrics()
+
+            fittedModels <- lapply(modelData,FUN = function(x){
+                x[["model"]]
+            })
+
+            model_name <- do.call(rbind,lapply(1:length(modelData),FUN = function(x){
+                m <- modelData[[x]]
+                y <- m[["model_name"]]
+                #print(m)
+                lenrep <- length(unique(m$model$.predictions[[1]]$.pred_FALSE)) + 2
+                #print(lenrep)
+                z <- data.frame(model=rep(paste0("model_",x),times=lenrep),
+                                model_type=rep(y,times=lenrep))
+                return(z)
+            }))
+            #print(model_name)
+            modelROC <- collateModelRoc(fittedModels,usePR = F)
+            #print(modelROC)
+            modelROC$model <- model_name$model
+            modelROC$model_type <- model_name$model_type
+
+            modelROC$model <- factor(modelROC$model,
+                                     levels = str_sort(unique(modelROC$model),
+                                                       numeric = T))
+            return(modelROC)
+        })
+
+        output$roc_plot <- shiny::renderPlot({
+
+            rocplot <- ggplot(rocMetrics(),
+                              aes(x = 1 - specificity,
+                                  y = sensitivity,
+                                  col = model)) +
+                geom_path(lwd = 1.5, alpha = 0.8) +
+                geom_abline(lty = 3) +
+                coord_equal() +
+                theme_bw()
+
+            return(rocplot)
+
+        })
+
+        predictOut <- eventReactive(input$applyModel,{
+            qcTablePred <- qcData$data
+            #qcTablePred <- qcTablePred[is.na(qcTablePred$use),]
+
+            modelIndex <- as.numeric(gsub(pattern = "model_",replacement = "",x = input$modelSelected))
+            #print(modelIndex)
+            selectedModelList <- modelMetrics()[[modelIndex]]
+            selectedModel <- selectedModelList[["model"]]
+            #print(selectedModel)
+
+            predModel <- extract_workflow(selectedModel)
+            #print(predModel)
+            #print(qcTablePred)
+            newClass <- stats::predict(predModel,qcTablePred,type = "class")
+            newProb <- round(stats::predict(predModel,qcTablePred,type = "prob"),digits = 2)
+
+            qcTablePred <- qcTablePred[,c("sample","use")]
+            qcTablePred <- cbind(qcTablePred,newClass,newProb)
+
+            return(qcTablePred)
+        })
+
+        output$predictTable <- DT::renderDT({
+            DT::datatable(predictOut(),rownames = FALSE,extensions = 'Scroller',
+                          options = list(
+                              class = "display",
+                              pageLength = 5,
+                              ordering=F,
+                              searching=F,
+                              scrollY = 300,
+                              scroller = TRUE,
+                              searchHighlight = T))
+        })
+
 
         # action on accepting fit
         shiny::observeEvent(input$accept_fit,{
@@ -590,7 +796,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                       options = list(
                           columnDefs = list(list(targets = "_all",render = DT::JS(
                               "function(data, type, row, meta) {",
-                              "return type === 'display' && data != null && data.length > 10 ?",
+                              "return type === 'display' && data != null && data.length > 11 ?",
                               "'<span title=\"' + data + '\">' + data.substr(0, 7) + '...</span>' : data;",
                               "}")
                                     )),
@@ -642,6 +848,51 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
                 utils::write.table(qcData$data,file,quote = F,sep = "\t",append = F,
                             row.names = F,col.names = T)
             }
+        )
+
+        output$saveModel <- shiny::downloadHandler(
+            filename = function() {
+                modelIndex <- as.numeric(gsub(pattern = "model_",
+                                              replacement = "",
+                                              x = input$modelSelected))
+                selectedModelList <- modelMetrics()[[modelIndex]]
+                modelName <- selectedModelList[["model_name"]]
+                paste0(Sys.Date(),"_CN_fitting_model_",modelName,".rds")
+            },
+            content = function(file) {
+                modelIndex <- as.numeric(gsub(pattern = "model_",
+                                              replacement = "",
+                                              x = input$modelSelected))
+                #print(modelIndex)
+                selectedModelList <- modelMetrics()[[modelIndex]]
+                selectedModel <- selectedModelList[["model"]]
+                #print(selectedModel)
+                predModel <- extract_workflow(selectedModel)
+                selectedModelList$extracted_model <- predModel
+
+                saveRDS(selectedModelList,file)
+            }
+
+        )
+
+        output$savePredict <- shiny::downloadHandler(
+            filename = function() {
+                modelIndex <- as.numeric(gsub(pattern = "model_",
+                                              replacement = "",
+                                              x = input$modelSelected))
+                selectedModelList <- modelMetrics()[[modelIndex]]
+                modelName <- selectedModelList[["model_name"]]
+                paste0(Sys.Date(),"_QC_table_fitted_",modelName,".tsv")
+            },
+            content = function(file) {
+                predTable <- predictOut()
+
+                predTable <- left_join(qcData$data,predTable,by = c("sample","use"))
+
+                utils::write.table(predTable,file,quote = F,sep = "\t",append = F,
+                                   row.names = F,col.names = T)
+            }
+
         )
 
         output$saveFits <- shiny::downloadHandler(
