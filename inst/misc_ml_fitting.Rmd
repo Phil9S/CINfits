@@ -17,17 +17,18 @@ library(xgboost)
 ## set cores for parallel compute
 cores <- parallel::detectCores()
 cores <- round(cores*0.8)
+
+# Set seed
+set.seed(0990)
 ```
 
 ```{r data}
 ## Load and pre-process data
-cellQC <- #data.table::fread("cellLine_fit_qc_table.tsv",header = T,sep = "\t") %>%
-            #dplyr::select(-notes) %>%
-            fitstats_ord %>%
-            tidyr::drop_na() %>%
-            dplyr::select(-grid_ploidy) %>%
-            dplyr::rename(purity = grid_purity) %>%
-            dplyr::mutate(use = factor(use))
+cellQC <- read.table("britroc_multifit_meta.tsv",header = T,sep = "\t") %>% 
+    tidyr::drop_na() %>%
+    dplyr::select(-grid_ploidy) %>%
+    dplyr::rename(purity = grid_purity) %>%
+    dplyr::mutate(use = factor(use))
 
 cellQcLong <- cellQC %>% 
                 tidyr::pivot_longer(cols = -c(1,ncol(.)),names_to = "features")
@@ -40,16 +41,13 @@ head(cellQC)
 ```
 
 ```{r plots}
-ggplot(cellQcLong,aes(log(value),colour=use)) +
+ggplot(cellQcLong,aes(log(value + .Machine$double.eps),colour=use)) +
     geom_density() +
     facet_wrap(. ~ features,scales = "free") +
     theme_bw()
 ```
 
 ```{r datasplit}
-# Set seed
-set.seed(0990)
-
 ## Perform data split using 70/20/10 split and stratified sampling to balance outcome class
 dataTrainTest <- splitFittingData(cellQC,prop = 0.7,strata = "use")
 dataSplit <- dataTrainTest$dataSplit
@@ -76,11 +74,9 @@ corrplot::corrplot(corr = corrMat,p.mat = testRes$p, method = 'number',type="upp
 ```{r setmodelreceipe}
 ## Set recipe for model
 # update sample column to be ID rather than predictor
-
 modelRecipeCV <- makeModelRecipe(data = trainingData,folds = 10,strata = "use")
 modelRecipe <- modelRecipeCV$recipe
 
-    
 summary(modelRecipe)
 ```
 
@@ -91,38 +87,31 @@ summary(modelRecipe)
 folds <- modelRecipeCV$cv
 ```
 
+## set optimisation metric
+
+```{r optmetric}
+opt_metric <- "pr_auc"
+```
+
 ## RBF SVM
 
 ```{r svmModel}
 #set RBF svm
-linsvm_res_final <- fitSVM(data = dataSplit,model = modelRecipe,folds = folds,metric = "accuracy")
-collect_metrics(linsvm_res_final)
-```
-
-```{r svmpred}
-linsv_auc <- linsvm_res_final %>%
-  collect_predictions() %>% 
-  roc_curve(use, .pred_FALSE) %>% 
-  mutate(model = "SVM (RBF)")
+final_linsvm_res <- fitSVM(data = dataSplit,
+                           model = modelRecipe,
+                           folds = folds,
+                           metric = opt_metric)
 ```
 
 ## logistic regression
 
 ```{r lgModel}
 ## Set logistic regression with glmnet engine/function
-lr_res_final <- fitGLMLogisticRegression(data = dataSplit,
+final_lr_res <- fitGLMLogisticRegression(data = dataSplit,
                                          model = modelRecipe,
                                          folds = folds,
                                          mixture = 0.5,
-                                         metric = "accuracy")
-collect_metrics(lr_res_final)
-```
-
-```{r lgpred}
-lr_auc <- lr_res_final %>%
-  collect_predictions() %>% 
-  roc_curve(use, .pred_FALSE) %>% 
-  mutate(model = "Logistic Regression")
+                                         metric = opt_metric)
 ```
 
 ## Random forest
@@ -132,29 +121,9 @@ lr_auc <- lr_res_final %>%
 final_rf_res <- fitRandomForest(data = dataSplit,
                                 model = modelRecipe,
                                 folds = folds,
-                                metric = "accuracy",
+                                metric = opt_metric,
                                 importance = "impurity",
-                                trees = 1000)
-collect_metrics(final_rf_res)
-```
-
-```{r predrf}
-rf_auc <- final_rf_res %>%
-  collect_predictions()  %>%
-  roc_curve(use, .pred_FALSE) %>%
-  mutate(model = "random forest")
-```
-
-```{r modelPerfRF}
-final_rf_res %>%
-    extract_fit_parsnip() %>% 
-    vip(num_features = 20) +
-    theme_bw()
-
-final_rf_res %>% 
-    collect_predictions() %>% 
-    roc_curve(use, .pred_FALSE) %>% 
-    autoplot()
+                                trees = 100)
 ```
 
 ### xbg
@@ -163,96 +132,48 @@ final_rf_res %>%
 final_xgb_res <- fitXGBtree(data = dataSplit,
                             model = modelRecipe,
                             folds = folds,
-                            metric = "accuracy",trees = 1000)
-collect_metrics(final_xgb_res)
-```
-
-```{r predxgb}
-bt_auc <- final_xgb_res %>%
-  collect_predictions()  %>%
-  roc_curve(use, .pred_FALSE) %>%
-  mutate(model = "boosted trees (xgb)")
-```
-
-```{r modelPerfxgb}
-final_xgb_res %>%
-    extract_fit_parsnip() %>% 
-    vip(num_features = 20) +
-    theme_bw()
-
-final_xgb_res %>% 
-    collect_predictions() %>% 
-    roc_curve(use, .pred_FALSE) %>% 
-    autoplot()
+                            metric = opt_metric,
+                            trees = 100)
 ```
 
 ## Compare models
 
-```{r compare}
-metrics <- metric_set(precision,accuracy,recall,f_meas,roc_auc)
+```{r compare_models}
+models <- list(final_lr_res,final_linsvm_res,final_xgb_res,final_rf_res)
 
-lr_metrics <- lr_res_final %>%
-    collect_predictions() %>%
-    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
-    mutate(model = "logistic regression")
-
-linsvm_metrics <- linsvm_res_final %>%
-    collect_predictions() %>%
-    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
-    mutate(model = "SVM (RBF)")
-
-rf_metrics <- final_rf_res %>%
-    collect_predictions() %>%
-    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
-    mutate(model = "random forest")
-
-xgb_metrics <- final_xgb_res %>%
-    collect_predictions() %>%
-    metrics(truth = use,estimate = .pred_class,.pred_FALSE) %>%
-    mutate(model = "boosted tree (xgb)")
-
+modelMetrics <- collateModelMetrics(models = models)
+modelROC <- collateModelRoc(models = models)
 ```
 
-```{r segVar_variance_results}
-segVarResultsMedian <- bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics)
-segVarResultsMedian %>%
-    ggplot(aes(.metric,.estimate,fill=model)) +
+```{r plot_models}
+ggplot(modelMetrics,aes(.metric,.estimate,fill=model)) +
         geom_col(position = "dodge") +
         facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
         theme_bw() + theme(legend.position = "bottom")
 
-bind_rows(rf_auc,linsv_auc,lr_auc,bt_auc) %>% 
-    ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
+ggplot(modelROC,aes(x = 1 - specificity, y = sensitivity, col = model)) + 
         geom_path(lwd = 1.5, alpha = 0.8) +
         geom_abline(lty = 3) + 
         coord_equal() + 
         theme_bw()
 
-bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics) %>%
+modelMetrics %>%
     select(-.estimator) %>%
     pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
-    arrange(desc(recall))
+    arrange(desc(f_meas))
 ```
 
-```{r segVar_variance_results}
-segVarResultsVAR <- bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics)
-segVarResultsVAR %>%
-    ggplot(aes(.metric,.estimate,fill=model)) +
-        geom_col(position = "dodge") +
-        facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
-        theme_bw() + theme(legend.position = "bottom")
+```{r explore borders}
+rf_table <- final_rf_res %>%
+                collect_predictions() %>%
+                mutate(failed = .pred_class != use) %>%
+                group_by(.row) %>%
+                mutate(prob = max(.pred_FALSE,.pred_TRUE))
 
-bind_rows(rf_auc,linsv_auc,lr_auc,bt_auc) %>% 
-    ggplot(aes(x = 1 - specificity, y = sensitivity, col = model)) + 
-        geom_path(lwd = 1.5, alpha = 0.8) +
-        geom_abline(lty = 3) + 
-        coord_equal() + 
-        theme_bw()
+ggplot(rf_table) +
+    geom_density(aes(prob,color=failed))
 
-bind_rows(lr_metrics,linsvm_metrics,rf_metrics,xgb_metrics) %>%
-    select(-.estimator) %>%
-    pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
-    arrange(desc(recall))
+plot(density(rf_table$.pred_FALSE))
 ```
 
 ```{r session}
