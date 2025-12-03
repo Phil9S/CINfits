@@ -26,13 +26,13 @@ plotSunrise <- function(data=NULL,ploidys=NULL,purities=NULL,ploidy=NULL,purity=
                                   ploidys = ploidys,
                                   purities = purities,
                                   ploidy=ploidy,
-                                  purity=ploidy,
+                                  purity=purity,
                                   alleleSpecifc=alleleSpecifc)
 
     ## avoid R CMD check notes
-    plpu <- data.frame(ploidy=c(as.character(ploidy)),
-                       purity=c(as.character(purity)),
-                       clonality=0.1)
+    # plpu <- data.frame(ploidy=c(as.character(ploidy)),
+    #                    purity=c(as.character(purity)),
+    #                    clonality=0.1)
     #print(plpu)
     #ploidy <- purity <- NULL
 
