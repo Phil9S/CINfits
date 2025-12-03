@@ -10,8 +10,9 @@ Authors@R:
            comment = c(ORCID = "0000-0002-9306-1747")))
 Maintainer: Philip Smith <philip.smith@cruk.cam.ac.uk>
 Description: CINfits is a package for performing quality control and copy number 
-    fitting on absolute copy number profiles. The package computes a range of useful
-    metrics, interactive & non-interactive workflows, and allows for refitting of copy number profiles.
+    fitting on absolute copy number profiles, primarily from shallow Whole Genome 
+    Sequencing data. The package computes a range of useful metrics, interactive 
+    & non-interactive workflows, and allows for refitting of copy number profiles.
 biocViews:
 Depends:
     R (>= 3.6.0)
