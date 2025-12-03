@@ -1,3 +1,10 @@
+#' collateModelMetrics
+#'
+#' @param models
+#'
+#' @returns data.frame
+#' @export
+#'
 collateModelMetrics <- function(models){
     use=`.pred_class`=`.pred_FALSE`=NULL
     if(is.null(models)){

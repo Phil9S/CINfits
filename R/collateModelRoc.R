@@ -1,3 +1,9 @@
+#' collateModelRoc
+#'
+#' @param models
+#' @param usePR
+#'
+#' @export
 collateModelRoc <- function(models,usePR=FALSE){
     use=`.pred_FALSE`=NULL
     if(is.null(models)){
