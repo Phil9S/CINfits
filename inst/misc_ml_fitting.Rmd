@@ -1,17 +1,32 @@
 ---
-title: "ML"
-output: html_document
-date: "2024-03-04"
+title: "Phil-in-a-box"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
 ---
 
-```{r libs}
-library(CINfits)
+## setup
+
+### Libraries
+
+```{r libs,message=FALSE}
+# External
 library(tidymodels)
 library(glmnet)
 library(ranger)
 library(vip)
 library(xgboost)
+library(knitr)
+library(kableExtra)
+# Internal
+library(CINfits)
+library(CINSignatureQuantification)
+library(QDNAseqmod)
 ```
+
+### vars
 
 ```{r ext}
 ## set cores for parallel compute
@@ -20,6 +35,64 @@ cores <- round(cores*0.8)
 
 # Set seed
 set.seed(0990)
+```
+
+## sWGS fitting
+
+- Fitting copy number to absolute state has continued to be a (often overlooked) challenge.
+- Methods applied to sWGS are particularly limited due to lack of SNP information
+- Resulting fits are often mathematically invariant and/or only qualitatively different
+
+```{r swgs_fits,fig.width=12}
+britroc_swgS <- read.table("britroc_30kb_ds_absCopyNumber_segmentTable.tsv",sep = "\t",header = T)
+britroc_swgS_meta <- read.table("britroc_30kb_ds_abs_fits.tsv",header = T,sep = "\t") %>%
+    rename(sample = SAMPLE_ID)
+
+plot.sample <- unique(britroc_swgS$sample)[5]
+cn.data <- britroc_swgS[britroc_swgS$sample == plot.sample,]
+
+cn.data.refit <- CINfits::rescaleFit(cn.data,new_ploidy = 2.2,new_purity = 0.55,old_purity = 0.83)
+
+par(mfrow=c(1,2))
+plotProfile(cn.data,sample = plot.sample,purity = 0.83)
+plotProfile(cn.data.refit,sample = plot.sample,purity = 0.55)
+```
+
+__Current process__
+
+- perform grid search
+- collapse ploidy-purity combinations in proximity with same loss
+- Select Top 10 lowest loss solutions for each sample
+- Remove overlapping solutions
+- manually curate solutions to pick best
+
+```{r sunrise}
+plotSunrise(cn.data,purity = 0.83,) +
+    ggtitle("CN profile fitting loss grid search") +
+    labs(fill="loss (MAD)") + theme(legend.position = "right") +
+    geom_point(aes(x="3.3",y = "0.83"),color="green",size = 3) +
+    geom_point(aes(x="2.2",y = "0.55"),color="red",size = 3)
+```
+
+## Predicting fit quality
+
+### Features
+
+Selection is both quantitative and qualitative
+
+```{r CIN_features}
+calculateCINStats(cn.data)
+```
+
+Use of `QDNASeq` input also allows for the computation of segment variance which is leveraged in the swgs-absolutecn pipeline
+
+```{r qdnaseq,echo=FALSE}
+rdsdata <- readRDS("../../../../OneDrive - CRUK Cambridge Institute/britroc-cn-analysis/absolute_POST_down_sampling/britroc_30kb_ds_absCopyNumber.rds")
+```
+
+```{r qdnaseqPlot}
+plot(rdsdata[,"IM_202"],doCalls=FALSE,showSD=TRUE,logTransform=FALSE,ylim=c(0,8),ylab="Absolute tumour CN")
+abline(h=1:9,col = "blue")
 ```
 
 ```{r data}
@@ -34,11 +107,18 @@ cellQcLong <- cellQC %>%
                 tidyr::pivot_longer(cols = -c(1,ncol(.)),names_to = "features")
 ```
 
+The quantitative features can be computed for each fit and include a class label as to whether I determined the fit was good or not
+
+```{r features}
+knitr::kable(head(cellQC))
+```
+
 ```{r datapre}
 ## Data preview
 dim(cellQC)
-head(cellQC)
 ```
+
+### Feature-class distributions
 
 ```{r plots}
 ggplot(cellQcLong,aes(log(value + .Machine$double.eps),colour=use)) +
@@ -46,6 +126,16 @@ ggplot(cellQcLong,aes(log(value + .Machine$double.eps),colour=use)) +
     facet_wrap(. ~ features,scales = "free") +
     theme_bw()
 ```
+
+### correlated predictors
+
+```{r corr,warning=FALSE}
+corrMat <- cor(as.matrix(cellQC[,c(2:7)]),method = "spearman")
+testRes = corrplot::cor.mtest(as.matrix(cellQC[,c(2:7)]),method = "spearman", conf.level = 0.95)
+corrplot::corrplot(corr = corrMat,p.mat = testRes$p, method = 'number',type="upper")
+```
+
+### Running model fitting
 
 ```{r datasplit}
 ## Perform data split using 70/20/10 split and stratified sampling to balance outcome class
@@ -57,18 +147,18 @@ trainingData <- dataTrainTest$trainingData
 testingData <- dataTrainTest$testingData
 ```
 
+```{r training}
+kable(head(trainingData))
+```
+
+```{r testing}
+kable(head(trainingData))
+```
+
 ```{r outcomeBalance}
 ## Check class balance
 table(trainingData$use,dnn = "training") / sum(table(trainingData$use))
 table(testingData$use,dnn = "testing") / sum(table(testingData$use))
-```
-
-## correlated predictors
-
-```{r corr}
-corrMat <- cor(as.matrix(cellQC[,c(2:7)]),method = "spearman")
-testRes = corrplot::cor.mtest(as.matrix(cellQC[,c(2:7)]),method = "spearman", conf.level = 0.95)
-corrplot::corrplot(corr = corrMat,p.mat = testRes$p, method = 'number',type="upper")
 ```
 
 ```{r setmodelreceipe}
@@ -80,22 +170,24 @@ modelRecipe <- modelRecipeCV$recipe
 summary(modelRecipe)
 ```
 
-## Set cross-fold validation
+#### Set cross-fold validation
 
 ```{r CVfolds}
 ## Set number of folds for cross-validation in training set
 folds <- modelRecipeCV$cv
+folds
 ```
 
-## set optimisation metric
+#### set optimisation metric
 
 ```{r optmetric}
 opt_metric <- "pr_auc"
+opt_metric
 ```
 
-## RBF SVM
+#### RBF SVM
 
-```{r svmModel}
+```{r svmModel,message=FALSE,warning=FALSE}
 #set RBF svm
 final_linsvm_res <- fitSVM(data = dataSplit,
                            model = modelRecipe,
@@ -103,7 +195,7 @@ final_linsvm_res <- fitSVM(data = dataSplit,
                            metric = opt_metric)
 ```
 
-## logistic regression
+#### logistic regression
 
 ```{r lgModel}
 ## Set logistic regression with glmnet engine/function
@@ -114,7 +206,7 @@ final_lr_res <- fitGLMLogisticRegression(data = dataSplit,
                                          metric = opt_metric)
 ```
 
-## Random forest
+#### Random forest
 
 ```{r rfModel}
 ## Set randomforest
@@ -126,7 +218,7 @@ final_rf_res <- fitRandomForest(data = dataSplit,
                                 trees = 100)
 ```
 
-### xbg
+#### xbg
 
 ```{r setxgbt}
 final_xgb_res <- fitXGBtree(data = dataSplit,
@@ -136,45 +228,115 @@ final_xgb_res <- fitXGBtree(data = dataSplit,
                             trees = 100)
 ```
 
-## Compare models
+### Compare models
 
 ```{r compare_models}
 models <- list(final_lr_res,final_linsvm_res,final_xgb_res,final_rf_res)
 
-modelMetrics <- collateModelMetrics(models = models)
-modelROC <- collateModelRoc(models = models)
+modelMetrics <- CINfits:::collateModelMetrics(models = models)
+modelROC <- CINfits:::collateModelRoc(models = models,usePR = F)
+modelROCPR <- CINfits:::collateModelRoc(models = models,usePR = T)
 ```
 
-```{r plot_models}
-ggplot(modelMetrics,aes(.metric,.estimate,fill=model)) +
-        geom_col(position = "dodge") +
-        facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
-        theme_bw() + theme(legend.position = "bottom")
+```{r plot_models_table}
+modelMetricsTable <- modelMetrics %>%
+                        select(-.estimator) %>%
+                        mutate(.estimate = round(.estimate,digits = 3)) %>%
+                        pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
+                        arrange(desc(f_meas))
 
+
+modelMetricsTable %>%
+    mutate(across(-model,~cell_spec(.x,bold = ifelse(.x == max(.x),T,F)))) %>%
+    kable(escape = FALSE)
+```
+
+```{r plot_modesl_roc}
+# metric_bar
+# ggplot(modelMetrics,aes(.metric,.estimate,fill=model)) +
+#         geom_col(position = "dodge") +
+#         facet_wrap(.metric ~ .,scales = "free_x",nrow = 1) +
+#         theme_bw() + theme(legend.position = "bottom")
+
+# PR-AUC
+# ggplot(modelROCPR,aes(x = recall, y = precision, col = model)) + 
+#         geom_path(lwd = 1.5, alpha = 0.8) +
+#         geom_abline(lty = 3) +
+#         theme_bw()
+
+#ROC-AUC
 ggplot(modelROC,aes(x = 1 - specificity, y = sensitivity, col = model)) + 
         geom_path(lwd = 1.5, alpha = 0.8) +
         geom_abline(lty = 3) + 
         coord_equal() + 
         theme_bw()
 
-modelMetrics %>%
-    select(-.estimator) %>%
-    pivot_wider(names_from = ".metric",id_cols = "model",values_from = ".estimate") %>%
-    arrange(desc(f_meas))
+
 ```
+### random forest model
+
+```{r rf_table}
+modelMetricsTable[modelMetricsTable$model == "rand_forest",] %>%
+    kable(escape = FALSE)
+```
+
+```{r contingency}
+getContingencyTable(final_rf_res)
+```
+
+## Model triage
+
+Models work well for the most part but incorrect assignments still occur in two forms
+- High confidence
+- Low confidence
 
 ```{r explore borders}
 rf_table <- final_rf_res %>%
                 collect_predictions() %>%
-                mutate(failed = .pred_class != use) %>%
+                mutate(prediction_accuracy = ifelse(.pred_class != use,"incorrect","correct")) %>%
                 group_by(.row) %>%
                 mutate(prob = max(.pred_FALSE,.pred_TRUE))
-
-ggplot(rf_table) +
-    geom_density(aes(prob,color=failed))
-
-plot(density(rf_table$.pred_FALSE))
 ```
+
+```{r predPlot1}
+ggplot(rf_table) +
+    geom_density2d(aes(.pred_FALSE,.pred_TRUE,color=prediction_accuracy)) +
+    facet_wrap(use ~ prediction_accuracy) +
+    theme_bw()
+```
+
+```{r predPlot2}
+ggplot(rf_table) +
+    geom_density(aes(prob,color=prediction_accuracy)) +
+    geom_vline(xintercept = 0.87,linetype=2) +
+    theme_bw()
+```
+
+If we predict the correct fit we can flag samples with low confidence assignments based on model probability
+and subsequently for samples with 2 or more fits assigned as TRUE, use lowest clonality or segvariance to select the final fit.
+
+```{r triage_profiles}
+cellQCTriage <- CINfits:::predictProfile(qctable = cellQC,flagThreshold = 0.84)
+
+kable(head(cellQCTriage))
+```
+
+## Phil-in-a-box
+
+__Final process__
+
+- perform grid search
+- collapse ploidy-purity combinations in proximity with same loss
+- Select Top 10 lowest loss solutions for each sample
+- Remove overlapping solutions
+- Use model to assign fit as use or not and flag low confidence fits
+    - (Optionally perform manual refitting of flagged samples)
+
+```{r app}
+#CINfits::fitInteractive(data = britroc_swgS,metadata = britroc_swgS_meta,autoSave = F)
+```
+
+### session info
 
 ```{r session}
 sessionInfo()

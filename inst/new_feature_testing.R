@@ -146,9 +146,5 @@ cellQC <- fitstats_ord %>% ## generated in
     dplyr::select(-grid_ploidy) %>%
     dplyr::rename(purity = grid_purity) %>%
     dplyr::mutate(use = factor(use))
-write.table(cellQC,file = "inst/britroc_multifit_meta.tsv",append = F,quote = F,sep = "\t",row.names = F,col.names = T)
 
-fitstats_ord_single <- fitstats_ord %>% ## remove sample duplicates and fit single profile
-                        group_by(sample) %>%
-                        filter(row_number() == 1 | use == TRUE) %>%
-                        filter(row_number() == 1)
+write.table(cellQC,file = "inst/britroc_multifit_meta.tsv",append = F,quote = F,sep = "\t",row.names = F,col.names = T)
