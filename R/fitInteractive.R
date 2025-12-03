@@ -569,14 +569,15 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             selectedModel <- selectedModelList[["model"]]
             #print(selectedModel)
 
-            predModel <- workflowsets::extract_workflow(selectedModel)
-            #print(predModel)
-            #print(qcTablePred)
-            newClass <- stats::predict(predModel,qcTablePred,type = "class")
-            newProb <- round(stats::predict(predModel,qcTablePred,type = "prob"),digits = 2)
-
-            qcTablePred <- qcTablePred[,c("sample","use")]
-            qcTablePred <- cbind(qcTablePred,newClass,newProb)
+            qcTablePred <- predictProfile(qctable = qcTablePred,model = selectedModel,flagThreshold = 0.84)
+            # predModel <- workflowsets::extract_workflow(selectedModel)
+            # #print(predModel)
+            # #print(qcTablePred)
+            # newClass <- stats::predict(predModel,qcTablePred,type = "class")
+            # newProb <- round(stats::predict(predModel,qcTablePred,type = "prob"),digits = 2)
+            #
+            # qcTablePred <- qcTablePred[,c("sample","use")]
+            # qcTablePred <- cbind(qcTablePred,newClass,newProb)
 
             return(qcTablePred)
         })
@@ -888,7 +889,7 @@ fitInteractive <- function(data=NULL,metadata=NULL,autoSave=FALSE,autoSaveInt=15
             content = function(file) {
                 predTable <- predictOut()
 
-                predTable <- dplyr::left_join(qcData$data,predTable,by = c("sample","use"))
+                #predTable <- dplyr::left_join(qcData$data,predTable,by = c("sample","use"))
 
                 utils::write.table(predTable,file,quote = F,sep = "\t",append = F,
                                    row.names = F,col.names = T)
