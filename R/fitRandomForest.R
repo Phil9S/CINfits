@@ -41,7 +41,7 @@ fitRandomForest <- function(data = NULL,model = NULL,folds = NULL,
                                                   yardstick::pr_auc))
 
     rf_best <- rf_res %>%
-        tune::select_best(metric = metric,n = 10)
+        tune::select_best(metric = metric)
 
     final_rf <- tune::finalize_workflow(rf_ranger_WF,rf_best)
     final_rf_res <- tune::last_fit(final_rf, data)

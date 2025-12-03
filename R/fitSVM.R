@@ -35,7 +35,7 @@ fitSVM <- function(data = NULL,model = NULL,folds = NULL,metric = "accuracy"){
                                                         yardstick::pr_auc))
 
     linsvm_best <- linsvm_res %>%
-        tune::select_best(metric,n = 10)
+        tune::select_best(metric = metric)
 
     linsvm_WF <- tune::finalize_workflow(linsvm_WF,linsvm_best)
 

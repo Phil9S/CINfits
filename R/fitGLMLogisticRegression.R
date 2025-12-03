@@ -36,7 +36,7 @@ fitGLMLogisticRegression <- function(data = NULL,model = NULL,folds = NULL,mixtu
                                                   yardstick::pr_auc))
 
     lr_best <- lr_res %>%
-        tune::select_best(metric = metric,n = 10)
+        tune::select_best(metric = metric)
 
     lgm_glmnet_WF <- tune::finalize_workflow(lgm_glmnet_WF,lr_best)
 

@@ -53,7 +53,7 @@ fitXGBtree <- function(data = NULL,model = NULL,folds = NULL,
                                                   yardstick::pr_auc))
 
     bt_best <- bt_res %>%
-        tune::select_best(metric = metric,n = 10)
+        tune::select_best(metric = metric)
 
     final_xgb <- tune::finalize_workflow(bt_WF,bt_best)
     final_xgb_res <- tune::last_fit(final_xgb, data)
