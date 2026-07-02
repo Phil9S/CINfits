@@ -41,12 +41,14 @@ triageProfile <- function(qcTable = NULL,flagThreshold=0.74,multiFitFilter="clon
     switch(multiFitFilter,
            "clonality"={
                qcTable <- qcTable %>%
+                   dplyr::group_by(sample) %>%
                    arrange(sample,clonality) %>%
                    mutate(use = ifelse(sumt <= 1,as.logical(.pred_class),
                                            ifelse(clonality == min(clonality),TRUE,FALSE)))
            },
            "segvariance"={
                qcTable <- qcTable %>%
+                   dplyr::group_by(sample) %>%
                    arrange(sample,segvariance) %>%
                    mutate(use = ifelse(sumt <= 1,as.logical(.pred_class),
                                            ifelse(segvariance == min(segvariance),TRUE,FALSE)))

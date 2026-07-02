@@ -15,7 +15,7 @@ colnames(cellSegs) <- c("chromosome","start","end","rounded",
 cellSegs <- cellSegs[,c(1:3,5,8)]
 
 # Apply smoothing to adjacent segements with proximal segVal
-cellSegsSmooth <- smoothProfile(cellSegs,smoothingFactor = 0.12)
+cellSegsSmooth <- CINfits::smoothProfile(cellSegs,smoothingFactor = 0.12)
 
 # read QC and Fit data
 cellQC <- read.table("inst/cellLine_fit_qc_table.tsv",

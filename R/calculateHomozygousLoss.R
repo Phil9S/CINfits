@@ -6,12 +6,12 @@
 #'
 #' @param data data.frame containing a segmented copy number profile
 #' @param threshold Copy number value at which to consider a segment as
-#'   homozygous loss (Default: 0.75)
+#'   homozygous loss (Default: 0.4)
 #'
 #' @return numeric
 #' @export
 #'
-calculateHomozygousLoss <- function(data=NULL,threshold=0.75){
+calculateHomozygousLoss <- function(data=NULL,threshold=0.4){
             data$length <- data$end - data$start
             hmzy <- sum(data$length[data$segVal < threshold]) / sum(data$length)*100
             return(hmzy)

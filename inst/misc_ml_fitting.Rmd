@@ -318,7 +318,7 @@ and subsequently for samples with 2 or more fits assigned as TRUE, use lowest cl
 ```{r triage_profiles}
 cellQCTriage <- CINfits:::predictProfile(qctable = cellQC,flagThreshold = 0.84)
 
-kable(head(cellQCTriage))
+head(cellQCTriage)
 ```
 
 ## Phil-in-a-box

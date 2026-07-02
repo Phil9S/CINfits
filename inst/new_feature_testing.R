@@ -10,7 +10,7 @@ getSegTable <- function(x){
     if(inherits(x,what = "QDNAseqCopyNumbers",which = F)){
         sn<-Biobase::assayDataElement(x,"segmented")
         fd <- Biobase::fData(x)
-        fd$use -> use
+        use <- fd$use
         fdfiltfull<-fd[use,]
         sn<-sn[use,]
         sn <- as.data.frame(sn)
@@ -20,26 +20,29 @@ getSegTable <- function(x){
 
         segTable<-c()
         for(s in colnames(sn)){
-            for(c in unique(fdfiltfull$chromosome))
-            {
-                snfilt <- sn[fdfiltfull$chromosome==c,colnames(sn) == s]
-                fdfilt<-fdfiltfull[fdfiltfull$chromosome==c,]
-                sn.rle<-rle(snfilt)
+            for(c in unique(fdfiltfull$chromosome)){
+                snfilt <- sn[fdfiltfull$chromosome == c,colnames(sn) == s]
+                fdfilt <- fdfiltfull[fdfiltfull$chromosome == c,]
+                sn.rle <- rle(snfilt)
                 starts <- cumsum(c(1, sn.rle$lengths[-length(sn.rle$lengths)]))
                 ends <- cumsum(sn.rle$lengths)
-                lapply(1:length(sn.rle$lengths), function(s) {
+
+                segtmp <- do.call(rbind,lapply(1:length(sn.rle$lengths), function(s){
                     from <- fdfilt$start[starts[s]]
                     to <- fdfilt$end[ends[s]]
                     segValue <- sn.rle$value[s]
                     c(fdfilt$chromosome[starts[s]], from, to, segValue)
-                }) -> segtmp
-                segTableRaw <- data.frame(matrix(unlist(segtmp), ncol=4, byrow=T),
-                                          sample = rep(s,times=nrow(matrix(unlist(segtmp), ncol=4, byrow=T))),stringsAsFactors=F)
-                segTable<-rbind(segTable,segTableRaw)
+                }))
+
+                segTableRaw <- cbind(segtmp,sample = rep(s,times=nrow(segtmp)))
+                segTable <- rbind(segTable,segTableRaw)
             }
         }
+        segTable <- as.data.frame(segTable)
         colnames(segTable) <- c("chromosome", "start", "end", "segVal","sample")
         segTable$segVal <- as.numeric(segTable$segVal)
+        segTable$segVal <- round(as.numeric(segTable$segVal),3)
+        segTable$segVal[segTable$segVal < 0] <- 0
         segTable$start <- as.numeric(segTable$start)
         segTable$end <- as.numeric(segTable$end)
         return(segTable)
@@ -49,9 +52,8 @@ getSegTable <- function(x){
     }
 }
 
-# convert depth to abs cn
-depthtocn <- function(x,purity,seqdepth) #converts read depth to copy number given purity and single copy depth
-{
+# converts read depth to copy number given purity and single copy depth
+depthtocn <- function(x,purity,seqdepth){
     (x/seqdepth-2*(1-purity))/purity
 }
 
@@ -80,8 +82,8 @@ calculateSegmentVar <- function(x,y){
     return(medianVar)
 }
 
-qc.data <- read.table("../../OneDrive - CRUK Cambridge Institute/britroc-cn-analysis/absolute_PRE_down_sampling/fit_QC_predownsample.tsv",header = T,sep = "\t")
-rdsdata <- paste0("../../OneDrive - CRUK Cambridge Institute/britroc-cn-analysis/absolute_PRE_down_sampling/britroc_smoothed_copyNumbersSegmented.rds")
+qc.data <- read.table("../../../OneDrive - CRUK Cambridge Institute/britroc-cn-analysis/absolute_PRE_down_sampling/fit_QC_predownsample.tsv",header = T,sep = "\t")
+rdsdata <- paste0("../../../OneDrive - CRUK Cambridge Institute/britroc-cn-analysis/absolute_PRE_down_sampling/britroc_smoothed_copyNumbersSegmented.rds")
 
 rds.rel <- readRDS(rdsdata)
 samples <- qc.data[which(qc.data$SAMPLE_ID %in% colnames(rds.rel)),]
@@ -129,9 +131,9 @@ fitstats <- do.call(rbind,lapply(colnames(rds.obj),FUN = function(sample){
 
         stats <- as.data.frame(cbind(calculateCINStats(tab),segvariance=segmentVar))
 
-        stats <- stats %>% rownames_to_column("sample") %>%
-            mutate(grid_ploidy = round(rep(ploidy,times=nrow(.)),digits = 1)) %>%
-            mutate(grid_purity = round(rep(purity,times=nrow(.)),digits = 2))
+        stats <- stats %>% tibble::rownames_to_column("sample") %>%
+            dplyr::mutate(grid_ploidy = round(rep(ploidy,times=nrow(.)),digits = 1)) %>%
+            dplyr::mutate(grid_purity = round(rep(purity,times=nrow(.)),digits = 2))
 
         return(stats)
     }))
