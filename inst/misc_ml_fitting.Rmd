@@ -308,7 +308,7 @@ ggplot(rf_table) +
 ```{r predPlot2}
 ggplot(rf_table) +
     geom_density(aes(prob,color=prediction_accuracy)) +
-    geom_vline(xintercept = 0.87,linetype=2) +
+    geom_vline(xintercept = 0.84,linetype=2) +
     theme_bw()
 ```
 
@@ -330,7 +330,7 @@ __Final process__
 - Select Top 10 lowest loss solutions for each sample
 - Remove overlapping solutions
 - Use model to assign fit as use or not and flag low confidence fits
-    - (Optionally perform manual refitting of flagged samples)
+- Optionally perform manual refitting of flagged samples 
 
 ```{r app}
 #CINfits::fitInteractive(data = britroc_swgS,metadata = britroc_swgS_meta,autoSave = F)

@@ -57,28 +57,25 @@ depthtocn <- function(x,purity,seqdepth){
     (x/seqdepth-2*(1-purity))/purity
 }
 
-calculateSegmentVar <- function(x,y){
-    segRLE <- rle(x)
+calculateSegmentVar <- function(abs_seg = NULL, abs_cn = NULL, chromosomes = NULL) {
+    abs_seg <- as.numeric(abs_seg)
+    abs_cn <- as.numeric(abs_cn)
 
-    segVar <- c()
-    for(i in 1:length(segRLE$lengths)){
-        if(i == 1){
-            strt_idx <- 1
-            end_idx <- segRLE$lengths[i]
-            segVar <- append(segVar,var(y[strt_idx:end_idx]))
-        } else {
-            start_idx <- max(cumsum(segRLE$lengths[1:i-1]))
-            strt_idx <- start_idx + 1
-            if(i == length(segRLE$lengths)){
-                end_idx <- segRLE$lengths[i] + strt_idx - 1
-            } else {
-                end_idx <- segRLE$lengths[i] + strt_idx
-            }
-            segVar <- append(segVar,var(y[strt_idx:end_idx]))
-        }
+    if (is.null(chromosomes)) {
+        chromosomes <- rep(1, length(abs_seg))
     }
+    stopifnot(length(chromosomes) == length(abs_seg),
+              length(abs_cn) == length(abs_seg))
 
-    medianVar <- median(segVar)
+    # a new segment starts where segment value or chromosome changes
+    n <- length(abs_seg)
+    newSeg <- c(TRUE, abs_seg[-1] != abs_seg[-n] | chromosomes[-1] != chromosomes[-n])
+    newSeg[is.na(newSeg)] <- TRUE
+    segId <- cumsum(newSeg)
+
+    segVar <- tapply(abs_cn, segId, stats::var)
+
+    medianVar <- stats::median(segVar, na.rm = TRUE)
     return(medianVar)
 }
 
