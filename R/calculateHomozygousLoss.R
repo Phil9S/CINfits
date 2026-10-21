@@ -1,6 +1,6 @@
 #' calculateHomozygousLoss
 #'
-#' Compute proportion of genome which is homozygous loss across a segmented copy
+#' Compute basepairs of genome which is homozygous loss across a segmented copy
 #' number profile. The specified threshold is used to determine which segments
 #' are considered homozygous loss.
 #'
@@ -13,6 +13,7 @@
 #'
 calculateHomozygousLoss <- function(data=NULL,threshold=0.4){
             data$length <- data$end - data$start
-            hmzy <- sum(data$length[data$segVal < threshold]) / sum(data$length)*100
+            # to match gridsearch in swgs-abscn
+            hmzy <- sum(data$length[data$segVal < threshold])
             return(hmzy)
 }
