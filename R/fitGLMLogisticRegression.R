@@ -14,7 +14,7 @@ fitGLMLogisticRegression <- function(data = NULL,model = NULL,folds = NULL,mixtu
     rlang::arg_match(metric,c("precision","accuracy","recall",
                               "f_meas","roc_auc","pr_auc"),multiple = F)
     ## Set logistic regression with glmnet engine/function
-    lgm_glmnet <- parsnip::logistic_reg(penalty = tune::tune(),mixture = mixture) %>%
+    lgm_glmnet <- parsnip::logistic_reg(penalty = tune::tune(),mixture = !!mixture) %>%
         parsnip::set_engine("glmnet")
 
     ## Set workflow by combining model and recipe into single model object

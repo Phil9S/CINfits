@@ -22,7 +22,7 @@ fitXGBtree <- function(data = NULL,model = NULL,folds = NULL,
                          sample_size = tune::tune(),
                          loss_reduction = tune::tune(),
                          min_n = tune::tune(),
-                         trees = trees) %>%
+                         trees = !!trees) %>%
         parsnip::set_mode("classification") %>%
         parsnip::set_engine("xgboost")
 
